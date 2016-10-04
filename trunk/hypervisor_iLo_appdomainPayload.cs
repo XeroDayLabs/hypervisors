@@ -218,7 +218,7 @@ namespace hypervisors
             }
         }
 
-        private void WaitForStatus(bool waitForState, TimeSpan timeout = default(TimeSpan))
+        public void WaitForStatus(bool waitForState, TimeSpan timeout = default(TimeSpan))
         {
             DateTime deadline;
             if (timeout == default(TimeSpan))
