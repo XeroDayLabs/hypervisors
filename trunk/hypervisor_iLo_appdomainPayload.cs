@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Management.Automation;
@@ -141,7 +140,10 @@ namespace hypervisors
                 // Check we can connect and login to the iLo.
                 cmd = String.Format("Get-HPiLOFirmwareInfo -Server \"{0}\" -Username \"{1}\" -Password \"{2}\"", 
                     _spec.iLoHostname, _spec.iLoUsername, _spec.iLoPassword);
-                doPowerShell(_psContext, cmd);
+                Collection<PSObject> output = doPowerShell(_psContext, cmd);
+                PSPropertyInfo prop = output[0].Properties["STATUS_TYPE"];
+                if ((string) prop.Value == "ERROR")
+                    throw  new Exception("iLo error on login to " + _spec.iLoHostname + " : " + (string) output[0].Properties["STATUS_MESSAGE"].Value); 
             }
         }
 
@@ -313,12 +315,6 @@ namespace hypervisors
                     // Now wait until the host is up enough that we can ping it.
                     WaitForStatus(true, TimeSpan.FromMinutes(6));
 
-                    // Now wait for it to be up enough that we can psexec to it.
-                    doWithRetryOnSomeExceptions(() =>
-                    {
-                        startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
-                    });
-
                     break;
                 }
                 catch (TimeoutException)
@@ -332,49 +328,6 @@ namespace hypervisors
             watch.Stop();
             Console.WriteLine("Box " + _spec.iLoHostname + " powered on in " + watch.Elapsed.ToString());
         }
-
-        private static void doWithRetryOnSomeExceptions(Action thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
-        {
-            int retries = maxRetries;
-            if (retry == default(TimeSpan))
-                retry = TimeSpan.Zero;
-
-            while (true)
-            {
-                try
-                {
-                    thingtoDo.Invoke();
-                    break;
-                }
-                catch (Win32Exception)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (System.Net.WebException)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (psExecException)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-
-                Thread.Sleep(retry);
-            }
-        }
-
 
         public  void startExecutable(string toExecute, string args)
         {
