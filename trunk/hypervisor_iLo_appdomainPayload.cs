@@ -312,8 +312,14 @@ namespace hypervisors
                         continue;
                     }
 
-                    // Now wait until the host is up enough that we can ping it.
+                    // Wait until the host is up enough that we can ping it...
                     WaitForStatus(true, TimeSpan.FromMinutes(6));
+
+                    // Now wait for it to be up enough that we can psexec to it.
+                    doWithRetryOnSomeExceptions(() =>
+                    {
+                        startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
+                    });
 
                     break;
                 }
@@ -327,6 +333,48 @@ namespace hypervisors
 
             watch.Stop();
             Console.WriteLine("Box " + _spec.iLoHostname + " powered on in " + watch.Elapsed.ToString());
+        }
+
+        private static void doWithRetryOnSomeExceptions(Action thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
+        {
+            int retries = maxRetries;
+            if (retry == default(TimeSpan))
+                retry = TimeSpan.Zero;
+
+            while (true)
+            {
+                try
+                {
+                    thingtoDo.Invoke();
+                    break;
+                }
+                catch (Win32Exception)
+                {
+                    if (maxRetries != 0)
+                    {
+                        if (retries-- == 0)
+                            throw;
+                    }
+                }
+                catch (System.Net.WebException)
+                {
+                    if (maxRetries != 0)
+                    {
+                        if (retries-- == 0)
+                            throw;
+                    }
+                }
+                catch (psExecException)
+                {
+                    if (maxRetries != 0)
+                    {
+                        if (retries-- == 0)
+                            throw;
+                    }
+                }
+
+                Thread.Sleep(retry);
+            }
         }
 
         public  void startExecutable(string toExecute, string args)
