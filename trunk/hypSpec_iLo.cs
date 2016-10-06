@@ -9,7 +9,7 @@ namespace hypervisors
             string hostUsername, string hostPassword, 
             string iloHostname, string iLoUsername, string iloPassword,
             string iscsiServerIP, string iscsiServerUsername, string iscsiServerPassword, 
-            string extentPrefix, UInt16 hostKernelDebugPort, string hostKernelDebugKey)
+            string snapshotName, UInt16 hostKernelDebugPort, string hostKernelDebugKey)
             : base(hostIP, hostKernelDebugPort, hostKernelDebugKey)
         {
             this.hostUsername = hostUsername;
@@ -20,7 +20,7 @@ namespace hypervisors
             this.iscsiserverIP = iscsiServerIP;
             this.iscsiServerUsername = iscsiServerUsername;
             this.iscsiServerPassword = iscsiServerPassword;
-            this.extentPrefix = extentPrefix;
+            this.snapshotName = snapshotName;
         }
         public string hostUsername;
         public string hostPassword;
@@ -30,6 +30,6 @@ namespace hypervisors
         public string iscsiserverIP;
         public string iscsiServerUsername;
         public string iscsiServerPassword;
-        public string extentPrefix;
+        public string snapshotName;
     }
 }

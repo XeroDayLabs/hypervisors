@@ -66,7 +66,7 @@ namespace hypervisors
 
         public void _restoreSnapshotByName(string snapshotNameOrID)
         {
-            string fullName = _spec.extentPrefix + snapshotNameOrID;
+            string fullName = _spec.snapshotName + snapshotNameOrID;
 
             FreeNAS nas = new FreeNAS(_spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
             // Here we power the server down, tell the iSCSI server to use the right image, and power it back up again.
@@ -81,9 +81,9 @@ namespace hypervisors
 
             // Now find the extent. We'll need to delete it before we can rollback the snapshot.
             List<iscsiExtent> extents = nas.getExtents();
-            iscsiExtent extent = extents.SingleOrDefault(x => x.iscsi_target_extent_name.Equals(_spec.extentPrefix, StringComparison.CurrentCultureIgnoreCase));
+            iscsiExtent extent = extents.SingleOrDefault(x => x.iscsi_target_extent_name.Equals(_spec.snapshotName, StringComparison.CurrentCultureIgnoreCase));
             if (extent == null)
-                throw new Exception("Cannot find extent " + _spec.extentPrefix);
+                throw new Exception("Cannot find extent " + _spec.snapshotName);
 
             // Find the 'target to extent' mapping, since this will need to be depeted before we can delete the extent.
             List<iscsiTargetToExtentMapping> tgtToExtents = nas.getTargetToExtents();
@@ -345,7 +345,7 @@ namespace hypervisors
             while (true)
             {
                 try
-                {
+                { 
                     thingtoDo.Invoke();
                     break;
                 }

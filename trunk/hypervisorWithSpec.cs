@@ -10,6 +10,11 @@ namespace hypervisors
     {
         public abstract specType getConnectionSpec();
 
+        public hypSpec_withWindbgKernel getBaseConnectionSpec()
+        {
+            return getConnectionSpec() as hypSpec_withWindbgKernel;
+        }
+
         private Action<specType> disposalCallback = null;
 
         public void setDisposalCallback(Action<specType> newDisposalCallback)
