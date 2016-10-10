@@ -15,5 +15,6 @@ namespace hypervisors
         public string kernelDebugIPOrHostname;
         public ushort kernelDebugPort;
         public string kernelDebugKey;
+        public string snapshotName;
     }
 }
