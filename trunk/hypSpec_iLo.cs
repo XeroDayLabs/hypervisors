@@ -30,6 +30,5 @@ namespace hypervisors
         public string iscsiserverIP;
         public string iscsiServerUsername;
         public string iscsiServerPassword;
-        public string snapshotName;
     }
 }

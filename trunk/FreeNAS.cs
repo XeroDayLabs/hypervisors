@@ -174,7 +174,7 @@ namespace hypervisors
 
         public List<snapshot> getSnapshots()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/?format=json", "get", HttpStatusCode.OK).text;
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/?limit=9999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<snapshot>>(HTTPResponse);
         }
 
