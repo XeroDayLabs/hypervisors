@@ -42,6 +42,11 @@ namespace hypervisors
             text = errText.ToString();
         }
 
+        public powerShellException(string msg)
+            :base(msg)
+        {
+        }
+
         public override string Message
         {
             get { return text; }
@@ -72,6 +77,7 @@ namespace hypervisors
             get { return "code " + exitCode + "; stderr '" + stderr + "'"; }
         }
     }
+
 
 
     [StructLayout(LayoutKind.Sequential)]
