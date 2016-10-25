@@ -92,7 +92,7 @@ namespace hypervisors
                     }
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 throw new Exception("FreeNAS API call failed, no response");
             }
