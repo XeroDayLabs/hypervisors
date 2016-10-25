@@ -4,33 +4,17 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Management.Automation;
-using System.Net;
 using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Remoting.Lifetime;
-using System.Text;
 using System.Threading;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace hypervisors
 {
-    public class ilo_resp_login
-    {
-        public string session_key;
-        public string user_name;
-        public string user_account;
-    }
-
-    public class ilo_resp_pwrState
-    {
-        public string hostpwr_state;
-    }
-
     public class snapshotObjects
     {
         public iscsiTargetToExtentMapping tgtToExtent;
@@ -40,26 +24,15 @@ namespace hypervisors
 
     public class hypervisor_iLo : hypervisorWithSpec<hypSpec_iLo>
     {
-        private string _ip;
-        private string _username;
-        private string _password;
-
-        private string baseURL;
-        private hypSpec_iLo _spec;
-
-        private string _sessionKey;
+        private hypervisor_iLo_HTTP ilo;
         private hypervisor_null _nullHyp;
-        private CookieContainer _cookies = new CookieContainer();
+
+        private hypSpec_iLo _spec;
 
         public hypervisor_iLo(hypSpec_iLo spec)
         {
             _spec = spec;
-            _ip = spec.iLoHostname;
-            _username = spec.iLoUsername;
-            _password = spec.iLoPassword;
-
-            baseURL = "https://" + _ip + "/json";
-
+            ilo = new hypervisor_iLo_HTTP(spec.iLoHostname, spec.iLoUsername, spec.iLoPassword);
             _nullHyp = new hypervisor_null(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
         }
 
@@ -132,123 +105,15 @@ namespace hypervisors
             };
         }
 
-        private string doRequest(string pageName, string methodName, bool isPost = true)
-        {
-            string url = baseURL + "/" + pageName;
-            HttpWebRequest req = WebRequest.CreateHttp(url);
-            req.CookieContainer = _cookies;
-            // Don't bother validating the SSL cert. :^)
-            req.ServerCertificateValidationCallback += (a, b, c, d) => true;
-            if (isPost)
-            {
-                req.Method = "POST";
-                string payload = "{\"method\":\"" + methodName + "\",\"session_key\":\"" + _sessionKey + "\"}";
-                Byte[] dataBytes = Encoding.ASCII.GetBytes(payload);
-                req.ContentLength = dataBytes.Length;
-                using (Stream stream = req.GetRequestStream())
-                {
-                    stream.Write(dataBytes, 0, dataBytes.Length);
-                }
-            }
-            else
-            {
-                req.Method = "GET";
-            }
-
-            try
-            {
-                using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
-                {
-                    using (Stream respStream = resp.GetResponseStream())
-                    {
-                        using (StreamReader respStreamReader = new StreamReader(respStream))
-                        {
-                            string contentString = respStreamReader.ReadToEnd();
-
-                            if (resp.StatusCode != HttpStatusCode.OK)
-                                throw new Exception("iLo API call failed, status " + resp.StatusCode + ", URL " + url + " HTTP response body " + contentString);
-
-                            return contentString;
-                        }
-                    }
-                }
-            }
-            catch (WebException e)
-            {
-                using (Stream respStream = e.Response.GetResponseStream())
-                {
-                    using (StreamReader respStreamReader = new StreamReader(respStream))
-                    {
-                        string contentString = respStreamReader.ReadToEnd();
-                        
-                        throw new Exception("iLo API call failed, status " + ((HttpWebResponse)e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                throw new Exception("iLo API call failed, no response");
-            }        
-            
-        }
 
         public override void connect()
         {
-            string url = baseURL + "/login_session";
-            HttpWebRequest req = WebRequest.CreateHttp(url);
-            req.Method = "POST";
-            req.CookieContainer = _cookies;
-            string payload = "{\"method\":\"login\",\"user_login\":\"" + _username + "\",\"password\":\"" + _password +"\"}:";
-            Byte[] dataBytes = Encoding.ASCII.GetBytes(payload);
-            req.ContentLength = dataBytes.Length;
-            // Don't bother validating the SSL cert. :^)
-            req.ServerCertificateValidationCallback += (a,b,c,d) => true;
-            using (Stream stream = req.GetRequestStream())
-            {
-                stream.Write(dataBytes, 0, dataBytes.Length);
-            }
-
-            try
-            {
-                using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
-                {
-                    using (Stream respStream = resp.GetResponseStream())
-                    {
-                        using (StreamReader respStreamReader = new StreamReader(respStream))
-                        {
-                            string contentString = respStreamReader.ReadToEnd();
-
-                            if (resp.StatusCode != HttpStatusCode.OK)
-                                throw new Exception("iLo API call failed, status " + resp.StatusCode + ", URL " + url + " HTTP response body " + contentString);
-
-                            ilo_resp_login result = JsonConvert.DeserializeObject<ilo_resp_login>(contentString);
-
-                            _sessionKey = result.session_key;
-                        }
-                    }
-                }
-            }
-
-            catch (WebException e)
-            {
-                using (Stream respStream = e.Response.GetResponseStream())
-                {
-                    using (StreamReader respStreamReader = new StreamReader(respStream))
-                    {
-                        string contentString = respStreamReader.ReadToEnd();
-                        throw new Exception("iLo API call failed, status " + ((HttpWebResponse)e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                throw new Exception("iLo API call failed, no response");
-            }        
+            ilo.connect();
         }
 
         public override void powerOn()
         {
-            doRequest("host_power", "press_power_button");
+            ilo.powerOn();
 
             // Wait until the host is up enough that we can ping it...
             WaitForStatus(true, TimeSpan.FromMinutes(6));
@@ -354,25 +219,12 @@ namespace hypervisors
 
         public override void powerOff()
         {
-            doRequest("host_power", "hold_power_button");
+            ilo.powerOff();
         }
 
         private bool getPowerStatus()
         {
-            while (true)
-            {
-                ilo_resp_pwrState pwrResp = JsonConvert.DeserializeObject<ilo_resp_pwrState>(doRequest("host_power", null, isPost: false));
-
-                switch (pwrResp.hostpwr_state.ToUpper())
-                {
-                    case "ON":
-                        return true;
-                    case "OFF":
-                        return false;
-                    default:
-                        throw new Exception("Unrecognised power state '" + pwrResp.hostpwr_state + "'");
-                }
-            }
+            return ilo.getPowerStatus();
         }
 
         public override void startExecutable(string toExecute, string args)

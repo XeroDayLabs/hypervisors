@@ -4,16 +4,16 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{47995DD9-9F78-4313-809D-55C515EAF89E}</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <ProjectGuid>{B896150F-CA77-4DF5-9264-43B13938437A}</ProjectGuid>
+    <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>hypervisors</RootNamespace>
-    <AssemblyName>hypervisors</AssemblyName>
+    <RootNamespace>hyptool</RootNamespace>
+    <AssemblyName>hyptool</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -21,58 +21,40 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Newtonsoft.Json, Version=4.5.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\ThirdParty\json.net\Newtonsoft.Json.dll</HintPath>
+    <Reference Include="CommandLine">
+      <HintPath>..\..\ThirdParty\commandlineparser\CommandLine.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Management.Automation, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\ThirdParty\powershell\System.Management.Automation.dll</HintPath>
-    </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="VimService60">
-      <HintPath>..\ThirdParty\vmware\VimService60.dll</HintPath>
-    </Reference>
-    <Reference Include="VimService60.XmlSerializers">
-      <HintPath>..\ThirdParty\vmware\VimService60.XmlSerializers.dll</HintPath>
-    </Reference>
-    <Reference Include="VMware.Vim">
-      <HintPath>..\ThirdParty\vmware\VMware.Vim.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
-    <Compile Include="FreeNAS.cs" />
-    <Compile Include="hypervisor.cs" />
-    <Compile Include="hypervisorWithSpec.cs" />
-    <Compile Include="hypervisor_iLo.cs" />
-    <Compile Include="hypervisor_iLo_HTTP.cs" />
-    <Compile Include="hypervisor_localhost.cs" />
-    <Compile Include="hypervisor_null.cs" />
-    <Compile Include="hypervisor_vmware.cs" />
-    <Compile Include="hypSpec_iLo.cs" />
-    <Compile Include="hypSpec_vmware.cs" />
-    <Compile Include="hypSpec_withWindbgKernel.cs" />
-    <Compile Include="NetworkConnection.cs" />
+    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\hypervisors.csproj">
+      <Project>{47995DD9-9F78-4313-809D-55C515EAF89E}</Project>
+      <Name>hypervisors</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
