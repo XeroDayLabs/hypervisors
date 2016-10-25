@@ -51,7 +51,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\hypervisors.csproj">
+    <ProjectReference Include="..\hypervisors\hypervisors.csproj">
       <Project>{47995DD9-9F78-4313-809D-55C515EAF89E}</Project>
       <Name>hypervisors</Name>
     </ProjectReference>
