@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
@@ -70,7 +71,9 @@ namespace hypervisors
             HttpWebRequest req = WebRequest.CreateHttp(url);
             req.CookieContainer = _cookies;
             // Don't bother validating the SSL cert. :^)
-            req.ServerCertificateValidationCallback += (a, b, c, d) => true;
+#pragma warning disable 0618  // CertificatePolicy is obselete, but we use it because the alternative doesn't work in Mono.
+            ServicePointManager.CertificatePolicy = new NoCheckCertPolicy();
+#pragma warning restore 0618
             if (isPost)
             {
                 req.Method = "POST";
@@ -148,7 +151,9 @@ namespace hypervisors
             Byte[] dataBytes = Encoding.ASCII.GetBytes(payload);
             req.ContentLength = dataBytes.Length;
             // Don't bother validating the SSL cert. :^)
-            req.ServerCertificateValidationCallback += (a, b, c, d) => true;
+#pragma warning disable 0618  // CertificatePolicy is obselete, but we use it because the alternative doesn't work in Mono.
+            ServicePointManager.CertificatePolicy = new NoCheckCertPolicy();
+#pragma warning restore 0618
             using (Stream stream = req.GetRequestStream())
             {
                 stream.Write(dataBytes, 0, dataBytes.Length);
@@ -213,6 +218,14 @@ namespace hypervisors
                         throw new Exception("Unrecognised power state '" + pwrResp.hostpwr_state + "'");
                 }
             }            
+        }
+    }
+
+    public class NoCheckCertPolicy : ICertificatePolicy
+    {
+        public bool CheckValidationResult(ServicePoint srvPoint, X509Certificate certificate, WebRequest request, int certificateProblem)
+        {
+            return true;
         }
     }
 
