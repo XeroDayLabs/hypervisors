@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CommandLine;
 using CommandLine.Text;
 using hypervisors;
+using Ysq.Zabbix;
 
 namespace hyptool
 {
@@ -41,9 +42,89 @@ namespace hyptool
                 case hypervisorAction.getPowerUse:
                     Console.WriteLine(hyp.getCurrentPowerUseW());
                     break;
+                case hypervisorAction.updateZabbix:
+                    doZabbix(args.zabbixServer, args.zabbixHostname, hyp);
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+
+        private static void doZabbix(string zbxServer, string ourHostname, hypervisor_iLo_HTTP hyp)
+        {
+            bool powerStatus = hyp.getPowerStatus();
+            int powerUse = hyp.getCurrentPowerUseW();
+            ilo_resp_healthfans fans = hyp.getHealthOfFans();
+            ilo_resp_healthPSUs psus = hyp.getHealthOfPSUs();
+            ilo_resp_healthtemps temps = hyp.getHealthOfTemps();
+
+            Sender sender = new Ysq.Zabbix.Sender(zbxServer);
+            // Send the discovery item a list of the data we have..
+            sender.Send(ourHostname, "fanList", makeFanListJSON(fans));
+            sender.Send(ourHostname, "psuList", makePSUListJSON(psus));
+            sender.Send(ourHostname, "tempList", makeTempListJSON(temps));
+
+            // and then send the data.
+            sender.Send(ourHostname, "powerState", powerStatus ? "1" : "0");
+            sender.Send(ourHostname, "powerUse", powerUse.ToString());
+            foreach (ilo_resp_healthfan fan in fans.fans)
+                sender.Send(ourHostname, "fanspeed[" + fan.label + "]", fan.speed);
+            foreach (ilo_resp_healthPSU psu in psus.power_supplies)
+                sender.Send(ourHostname, "psustatus[" + psu.label + "]", psu.status);
+            foreach (ilo_resp_healthtemp temp in temps.temps)
+            {
+                sender.Send(ourHostname, "cautionTemp[" + temp.label + "]", temp.caution.ToString());
+                sender.Send(ourHostname, "currentTemp[" + temp.label + "]", temp.currentreading.ToString());
+                sender.Send(ourHostname, "criticalTemp[" + temp.label + "]", temp.critical.ToString());
+            }
+        }
+
+        private static string makeFanListJSON(ilo_resp_healthfans fans)
+        {
+            StringBuilder toSend = new StringBuilder("{ \"data\" :[ ");
+            int n = 0;
+            foreach (ilo_resp_healthfan fan in fans.fans)
+            {
+                if (n++ > 0)
+                    toSend.Append(",");
+                toSend.Append(String.Format("{{ \"{{#FANNAME}}\": \"{0}\"}}", fan.label));
+            }
+            toSend.Append("]}");
+
+            return toSend.ToString();
+        }
+
+        private static string makePSUListJSON(ilo_resp_healthPSUs psus)
+        {
+            StringBuilder toSend = new StringBuilder("{ \"data\" :[ ");
+            int n = 0;
+            foreach (ilo_resp_healthPSU psu in psus.power_supplies)
+            {
+                if (n++ > 0)
+                    toSend.Append(",");
+                toSend.Append(String.Format("{{ \"{{#PSUNAME}}\": \"{0}\"}}", psu.label));
+            }
+            toSend.Append("]}");
+
+            return toSend.ToString();
+        }
+
+        private static string makeTempListJSON(ilo_resp_healthtemps temps)
+        {
+            StringBuilder toSend = new StringBuilder("{ \"data\" :[ ");
+            int n = 0;
+            foreach (ilo_resp_healthtemp temp in temps.temps)
+            {
+                if (n++ > 0)
+                    toSend.Append(",");
+                toSend.Append("{");
+                toSend.Append(String.Format("\"{{#TEMPNAME}}\": \"{0}\",", temp.label));
+                toSend.Append(String.Format("\"{{#TEMPLOCATION}}\": \"{0}\",", temp.location));
+                toSend.Append("}");
+            }
+            toSend.Append("]}");
+
+            return toSend.ToString();
         }
     }
 
@@ -64,6 +145,12 @@ namespace hyptool
         [Option('r', "retries", Required = false, HelpText = "Numer of retries on failure", DefaultValue = 10)]
         public int retries { get; set; }
 
+        [Option('z', "zabbix-server", Required = false, HelpText = "Zabbix server to use", DefaultValue = "127.0.0.1")]
+        public string zabbixServer { get; set; }
+
+        [Option('h', "zabbix-hostname", Required = false, HelpText = "Hostname to report to Zabbix", DefaultValue = "localhost")]
+        public string zabbixHostname { get; set; }
+
         [Option('n', "numeric-output", Required = false, HelpText = "Output numeric responses, not ascii", DefaultValue = false)]
         public bool numeric { get; set; }
     }
@@ -73,6 +160,7 @@ namespace hyptool
         powerOn,
         powerOff,
         getPowerStatus,
-        getPowerUse
+        getPowerUse,
+        updateZabbix
     }
 }

@@ -229,6 +229,24 @@ namespace hypervisors
             return pwrResp.power_supply_input_power;
         }
 
+        public ilo_resp_healthfans getHealthOfFans()
+        {
+            ilo_resp_healthfans pwrResp = JsonConvert.DeserializeObject<ilo_resp_healthfans>(doRequest("health_fans", null, isPost: false));
+            return pwrResp;
+        }
+
+        public ilo_resp_healthtemps getHealthOfTemps()
+        {
+            ilo_resp_healthtemps tmpResp = JsonConvert.DeserializeObject<ilo_resp_healthtemps>(doRequest("health_temperature", null, isPost: false));
+            return tmpResp;
+        }
+
+        public ilo_resp_healthPSUs getHealthOfPSUs()
+        {
+            ilo_resp_healthPSUs tmpResp = JsonConvert.DeserializeObject<ilo_resp_healthPSUs>(doRequest("host_power_supply", null, isPost: false));
+            return tmpResp;
+        }
+
         public bool getPowerStatus()
         {
             ilo_resp_pwrState pwrResp = JsonConvert.DeserializeObject<ilo_resp_pwrState>(doRequest("host_power", null, isPost: false));
@@ -264,6 +282,52 @@ namespace hypervisors
         public string session_key;
         public string user_name;
         public string user_account;
+    }
+
+    public class ilo_resp_healthfan
+    {
+        public string label;
+        public string location;
+        public string status;
+        public string speed;        
+    }
+
+    public class ilo_resp_healthfans
+    {
+        public string hostpwr_state;
+        public ilo_resp_healthfan[] fans;
+    }
+
+    public class ilo_resp_healthtemp
+    {
+        public string label;
+        public int xposition;
+        public int yposition;
+        public string location;
+        public string status;
+        public int currentreading;
+        public int caution;
+        public int critical;
+        public string temp_unit;
+    }
+
+    public class ilo_resp_healthtemps
+    {
+        public string hostpwr_state;
+        public ilo_resp_healthtemp[] temps;
+    }
+
+    public class ilo_resp_healthPSU
+    {
+        public string label;
+        public string location;
+        public string status;
+        public string power;
+    }
+
+    public class ilo_resp_healthPSUs
+    {
+        public ilo_resp_healthPSU[] power_supplies;
     }
 
     public class ilo_resp_powersummary
