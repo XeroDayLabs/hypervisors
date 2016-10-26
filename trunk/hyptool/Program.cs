@@ -60,9 +60,9 @@ namespace hyptool
 
             Sender sender = new Ysq.Zabbix.Sender(zbxServer);
             // Send the discovery item a list of the data we have..
-            sender.Send(ourHostname, "fanList", makeFanListJSON(fans));
-            sender.Send(ourHostname, "psuList", makePSUListJSON(psus));
-            sender.Send(ourHostname, "tempList", makeTempListJSON(temps));
+            sender.Send(ourHostname, "fanList", makeFanListJSON(fans), 2500);
+            sender.Send(ourHostname, "psuList", makePSUListJSON(psus), 2500);
+            sender.Send(ourHostname, "tempList", makeTempListJSON(temps), 2500);
 
             // and then send the data.
             sender.Send(ourHostname, "powerState", powerStatus ? "1" : "0");
