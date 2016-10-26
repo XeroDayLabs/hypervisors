@@ -38,6 +38,9 @@ namespace hyptool
                     else
                         Console.WriteLine(args.numeric ? "0" : "OFF");
                     break;
+                case hypervisorAction.getPowerUse:
+                    Console.WriteLine(hyp.getCurrentPowerUseW());
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -69,6 +72,7 @@ namespace hyptool
     {
         powerOn,
         powerOff,
-        getPowerStatus
+        getPowerStatus,
+        getPowerUse
     }
 }

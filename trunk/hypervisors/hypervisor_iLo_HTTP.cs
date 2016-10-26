@@ -143,6 +143,26 @@ namespace hypervisors
 
         public void connect()
         {
+            int retriesLeft = retries;
+            while (true)
+            {
+                try
+                {
+                    _connect();
+                    return;
+                }
+                catch (Exception)
+                {
+                    if (retriesLeft-- == 0)
+                        throw;
+
+                    Thread.Sleep(TimeSpan.FromSeconds(3));
+                }
+            }
+        }
+
+        public void _connect()
+        {
             string url = _baseURL + "/login_session";
             HttpWebRequest req = WebRequest.CreateHttp(url);
             req.Method = "POST";
@@ -202,22 +222,26 @@ namespace hypervisors
             doRequest("host_power", "press_power_button");
         }
 
+        public int getCurrentPowerUseW()
+        {
+            ilo_resp_powersummary pwrResp = JsonConvert.DeserializeObject<ilo_resp_powersummary>(doRequest("power_summary", null, isPost: false));
+
+            return pwrResp.power_supply_input_power;
+        }
+
         public bool getPowerStatus()
         {
-            while (true)
-            {
-                ilo_resp_pwrState pwrResp = JsonConvert.DeserializeObject<ilo_resp_pwrState>(doRequest("host_power", null, isPost: false));
+            ilo_resp_pwrState pwrResp = JsonConvert.DeserializeObject<ilo_resp_pwrState>(doRequest("host_power", null, isPost: false));
 
-                switch (pwrResp.hostpwr_state.ToUpper())
-                {
-                    case "ON":
-                        return true;
-                    case "OFF":
-                        return false;
-                    default:
-                        throw new Exception("Unrecognised power state '" + pwrResp.hostpwr_state + "'");
-                }
-            }            
+            switch (pwrResp.hostpwr_state.ToUpper())
+            {
+                case "ON":
+                    return true;
+                case "OFF":
+                    return false;
+                default:
+                    throw new Exception("Unrecognised power state '" + pwrResp.hostpwr_state + "'");
+            }
         }
     }
 
@@ -240,6 +264,34 @@ namespace hypervisors
         public string session_key;
         public string user_name;
         public string user_account;
+    }
+
+    public class ilo_resp_powersummary
+    {
+        public string hostpwr_state;
+        public int last_avg_pwr_accum;
+        public int last_5min_avg;
+        public int last_5min_peak;
+        public int _24hr_average;
+        public int _24hr_peak;
+        public int _24hr_min;
+        public int _24hr_max_cap;
+        public int _24hr_max_temp;
+        public int _20min_average;
+        public int _20min_peak;
+        public int _20min_min;
+        public int _20min_max_cap;
+        public int max_measured_wattage;
+        public int min_measured_wattage;
+        public int volts;
+        public int power_cap;
+        public string power_cap_mode;
+        public string power_regulator_mode;
+        public int power_supply_capacity;
+        public int power_supply_input_power;
+        public int num_valid_history_samples;
+        public int num_valid_fast_history_samples;
+        public int powerreg;
     }
 
     public class ilo_resp_pwrState
