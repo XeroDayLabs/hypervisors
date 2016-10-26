@@ -43,7 +43,7 @@ namespace hyptool
                     Console.WriteLine(hyp.getCurrentPowerUseW());
                     break;
                 case hypervisorAction.updateZabbix:
-                    doZabbix(args.zabbixServer, args.zabbixHostname, hyp);
+                    doZabbix(args.zabbixServer.Trim(), args.zabbixHostname.Trim(), hyp);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -71,7 +71,7 @@ namespace hyptool
                 sender.Send(ourHostname, "fanspeed[" + fan.label + "]", fan.speed);
             foreach (ilo_resp_healthPSU psu in psus.power_supplies)
                 sender.Send(ourHostname, "psustatus[" + psu.label + "]", psu.status);
-            foreach (ilo_resp_healthtemp temp in temps.temps)
+            foreach (ilo_resp_healthtemp temp in temps.temperature)
             {
                 sender.Send(ourHostname, "cautionTemp[" + temp.label + "]", temp.caution.ToString());
                 sender.Send(ourHostname, "currentTemp[" + temp.label + "]", temp.currentreading.ToString());
@@ -113,13 +113,13 @@ namespace hyptool
         {
             StringBuilder toSend = new StringBuilder("{ \"data\" :[ ");
             int n = 0;
-            foreach (ilo_resp_healthtemp temp in temps.temps)
+            foreach (ilo_resp_healthtemp temp in temps.temperature)
             {
                 if (n++ > 0)
                     toSend.Append(",");
                 toSend.Append("{");
                 toSend.Append(String.Format("\"{{#TEMPNAME}}\": \"{0}\",", temp.label));
-                toSend.Append(String.Format("\"{{#TEMPLOCATION}}\": \"{0}\",", temp.location));
+                toSend.Append(String.Format("\"{{#TEMPLOCATION}}\": \"{0}\"", temp.location));
                 toSend.Append("}");
             }
             toSend.Append("]}");

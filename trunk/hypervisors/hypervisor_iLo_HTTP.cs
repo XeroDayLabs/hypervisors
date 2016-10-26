@@ -243,7 +243,7 @@ namespace hypervisors
 
         public ilo_resp_healthPSUs getHealthOfPSUs()
         {
-            ilo_resp_healthPSUs tmpResp = JsonConvert.DeserializeObject<ilo_resp_healthPSUs>(doRequest("host_power_supply", null, isPost: false));
+            ilo_resp_healthPSUs tmpResp = JsonConvert.DeserializeObject<ilo_resp_healthPSUs>(doRequest("health_power_supply", null, isPost: false));
             return tmpResp;
         }
 
@@ -314,7 +314,7 @@ namespace hypervisors
     public class ilo_resp_healthtemps
     {
         public string hostpwr_state;
-        public ilo_resp_healthtemp[] temps;
+        public ilo_resp_healthtemp[] temperature;
     }
 
     public class ilo_resp_healthPSU

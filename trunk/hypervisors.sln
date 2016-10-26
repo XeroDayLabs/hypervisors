@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hyptool", "hyptool\hyptool.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hypervisors", "hypervisors\hypervisors.csproj", "{47995DD9-9F78-4313-809D-55C515EAF89E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "thirdParty", "thirdParty", "{5240AE98-5A57-43E0-A941-8B248A7FB5F2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZabbixSenderNet", "..\ThirdParty\ZabbixSenderNet\ZabbixSenderNet\ZabbixSenderNet.csproj", "{1E264E84-82F5-4E8F-9847-4EE0CB8F5117}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,8 +25,15 @@ Global
 		{47995DD9-9F78-4313-809D-55C515EAF89E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{47995DD9-9F78-4313-809D-55C515EAF89E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{47995DD9-9F78-4313-809D-55C515EAF89E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1E264E84-82F5-4E8F-9847-4EE0CB8F5117}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E264E84-82F5-4E8F-9847-4EE0CB8F5117}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E264E84-82F5-4E8F-9847-4EE0CB8F5117}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E264E84-82F5-4E8F-9847-4EE0CB8F5117}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1E264E84-82F5-4E8F-9847-4EE0CB8F5117} = {5240AE98-5A57-43E0-A941-8B248A7FB5F2}
 	EndGlobalSection
 EndGlobal
