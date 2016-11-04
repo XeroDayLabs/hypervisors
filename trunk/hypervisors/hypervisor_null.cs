@@ -43,8 +43,22 @@ namespace hypervisors
         {
             throw new NotImplementedException();
         }
-        
-        public override executionResult startExecutable(string toExecute, string cmdArgs, string workingDir = null)
+
+        public override executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        {
+            string stdoutfilename = string.Format("C:\\users\\{0}\\hyp_stdout.txt", _username);
+            string stderrfilename = string.Format("C:\\users\\{0}\\hyp_stderr.txt", _username);
+            // Execute via cmd.exe so we can capture stdout.
+            string cmdargs = String.Format("/c {0} {1} 1> {2} 2> {3}", toExecute, args, stdoutfilename, stderrfilename);
+            executionResult toRet = new executionResult();
+            toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir); ;
+            toRet.stdout = getFileFromGuest(stdoutfilename);
+            toRet.stderr = getFileFromGuest(stderrfilename);
+
+            return toRet;
+        }
+
+        public int _startExecutable(string toExecute, string cmdArgs, string workingDir = null)
         {
             if (workingDir == null)
                 workingDir = "C:\\";
@@ -60,13 +74,9 @@ namespace hypervisors
 
             proc.WaitForExit();
 
-            string stderr = proc.StandardError.ReadToEnd();
-            string stdout = proc.StandardOutput.ReadToEnd();
 //            if (proc.ExitCode != 0)
 //                throw new psExecException(stderr, proc.ExitCode);
-            Debug.WriteLine("psexec on " + _guestIP + ": " + stderr + " / " + stdout);
-
-            return new executionResult() {stdout = stdout, stderr = stderr, resultCode = proc.ExitCode};
+            return proc.ExitCode;
         }
 
         public override void mkdir(string newDir)
