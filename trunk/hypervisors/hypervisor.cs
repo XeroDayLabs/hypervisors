@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 
 namespace hypervisors
 {
@@ -9,7 +10,8 @@ namespace hypervisors
         public abstract void powerOn();
         public abstract void powerOff();
         public abstract void copyToGuest(string srcpath, string dstpath);
-        public abstract void startExecutable(string toExecute, string args);
+        public abstract string getFileFromGuest(string srcpath);
+        public abstract executionResult startExecutable(string toExecute, string args, string workingDir = null);
         public abstract void mkdir(string newDir);
 
         public void Dispose()
@@ -20,5 +22,23 @@ namespace hypervisors
         protected virtual void _Dispose()
         {
         }
+
+        public void copyDirToGuest(string src, string dest)
+        {
+            mkdir(dest);
+            foreach (string srcName in Directory.GetFiles(src))
+                copyToGuest(srcName, dest + "\\");
+            foreach (string srcName in Directory.GetDirectories(src))
+                copyDirToGuest(srcName, Path.Combine(dest, Path.GetFileName(srcName)) );
+        }
+    }
+
+    public class executionResult
+    {
+        public int resultCode;
+
+        public string stdout;
+
+        public string stderr;
     }
 }

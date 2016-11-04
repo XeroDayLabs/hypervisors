@@ -52,9 +52,21 @@ namespace hypervisors
             File.Copy(srcpath, dstpath);
         }
 
-        public override void startExecutable(string toExecute, string args)
+        public override string getFileFromGuest(string srcpath)
         {
-            _p = Process.Start(toExecute, args);
+            return File.ReadAllText(srcpath);
+        }
+
+        public override executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        {
+            if (workingDir == null)
+                workingDir = "C:\\";
+
+            ProcessStartInfo ps = new ProcessStartInfo(toExecute, args);
+            ps.WorkingDirectory = workingDir;
+            _p = Process.Start(ps);
+
+            return null;
         }
 
         public override void mkdir(string newDir)

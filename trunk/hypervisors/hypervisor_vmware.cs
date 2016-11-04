@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using VMware.Vim;
 using Action = System.Action;
@@ -41,7 +42,7 @@ namespace hypervisors
             lock (VMWareLock)
             {
                 // Find its named snapshot
-                VirtualMachineSnapshotTree snapshot = _underlyingVM.Snapshot.RootSnapshotList.Single(x => x.Name == snapshotNameOrID || x.Id.ToString() == snapshotNameOrID);
+                VirtualMachineSnapshotTree snapshot = findRecusively(_underlyingVM.Snapshot.RootSnapshotList, snapshotNameOrID);
 
                 // and revert it.
                 VirtualMachineSnapshot shot = new VirtualMachineSnapshot(VClient, snapshot.Snapshot);
@@ -56,12 +57,25 @@ namespace hypervisors
             {
                 lock (VMWareLock)
                 {
-                    startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
+                    _startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi", true);
                 }
+                return "";
             });
         }
 
-        private void doWithRetryOnSomeExceptions(Action thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
+        private VirtualMachineSnapshotTree findRecusively(VirtualMachineSnapshotTree[] parent, string snapshotNameOrID)
+        {
+            foreach (VirtualMachineSnapshotTree tree in parent)
+            {
+                if (tree.Name == snapshotNameOrID || tree.Id.ToString() == snapshotNameOrID)
+                    return tree;
+
+                return findRecusively(tree.ChildSnapshotList, snapshotNameOrID);
+            }
+            return null;
+        }
+
+        private string doWithRetryOnSomeExceptions(Func<string> thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
         {
             int retries = maxRetries;
             if (retry == default(TimeSpan))
@@ -71,8 +85,7 @@ namespace hypervisors
             {
                 try
                 {
-                    thingtoDo.Invoke();
-                    break;
+                    return thingtoDo.Invoke();
                 }
                 catch (VimException)
                 {
@@ -137,10 +150,10 @@ namespace hypervisors
                 {
                     _underlyingVM.PowerOffVM();
                 }
+                return null;
             }, TimeSpan.FromSeconds(1), 10  );
         }
-
-
+        
         public override void copyToGuest(string srcpath, string dstpath)
         {
             doWithRetryOnSomeExceptions(() =>
@@ -149,6 +162,7 @@ namespace hypervisors
                 {
                     _copyToGuest(srcpath, dstpath);
                 }
+                return null;
             }, TimeSpan.FromMilliseconds(100), 100);
         }
 
@@ -184,12 +198,54 @@ namespace hypervisors
             {
                 webClient.UploadFile(oUri, "PUT", srcpath);
             }
-
         }
 
-        public override void startExecutable(string toExecute, string args)
+        public override string getFileFromGuest(string srcpath)
         {
-            _startExecutable(toExecute, args, true);
+            return doWithRetryOnSomeExceptions(() =>
+            {
+                lock (VMWareLock)
+                {
+                    return _getFileFromGuest(srcpath);
+                }
+            }, TimeSpan.FromMilliseconds(100), 100);
+        }
+
+        private string _getFileFromGuest(string srcpath)
+        {
+            NamePasswordAuthentication Auth = new NamePasswordAuthentication
+            {
+                Username = _spec.kernelVMUsername,
+                Password = _spec.kernelVMPassword,
+                InteractiveSession = true
+            };
+
+            GuestOperationsManager gom = (GuestOperationsManager)VClient.GetView(VClient.ServiceContent.GuestOperationsManager, null);
+            GuestAuthManager guestAuthManager = VClient.GetView(gom.AuthManager, null) as GuestAuthManager;
+            guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
+            GuestFileManager GFM = VClient.GetView(gom.FileManager, null) as GuestFileManager;
+
+            FileTransferInformation transferOutput = GFM.InitiateFileTransferFromGuest(_underlyingVM.MoRef, Auth, srcpath);
+            string nodeIpAddress = VClient.ServiceUrl.ToString();
+            nodeIpAddress = nodeIpAddress.Remove(nodeIpAddress.LastIndexOf('/'));
+            string url = transferOutput.Url.Replace("https://*", nodeIpAddress);
+            using (WebClient webClient = new WebClient())
+            {
+                return webClient.DownloadString(url);
+            }
+        }
+
+        public override executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        {
+            string stdoutfilename = string.Format("C:\\users\\{0}\\hyp_stdout.txt", _spec.kernelVMUsername);
+            // Execute via cmd.exe so we can capture stdout.
+            string cmdargs = String.Format("/c \"{0}\" {1} > {2}", toExecute, args, stdoutfilename);
+            executionResult toRet = new executionResult();
+            _startExecutable("cmd.exe", cmdargs, true, workingDir);
+            toRet.resultCode = 0;
+            toRet.stdout = _getFileFromGuest(stdoutfilename);
+
+            return toRet;
         }
 
         public void startExecutableAsync(string toExecute, string args)
@@ -197,8 +253,11 @@ namespace hypervisors
             _startExecutable(toExecute, args, false);
         }
 
-        private void _startExecutable(string toExecute, string args, bool waitForExit)
+        private void _startExecutable(string toExecute, string args, bool waitForExit, string workingDir = null)
         {
+            if (workingDir == null)
+                workingDir = "C:\\";
+
             long guestPID;
             GuestProcessManager guestProcessManager;
             NamePasswordAuthentication Auth;
@@ -257,6 +316,7 @@ namespace hypervisors
                 {
                     _mkdir(newDir);
                 }
+                return null;
             }, TimeSpan.FromMilliseconds(100), 100);
         }
         

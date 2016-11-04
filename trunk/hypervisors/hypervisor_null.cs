@@ -43,10 +43,13 @@ namespace hypervisors
         {
             throw new NotImplementedException();
         }
-
-        public override void startExecutable(string toExecute, string cmdArgs)
+        
+        public override executionResult startExecutable(string toExecute, string cmdArgs, string workingDir = null)
         {
-            string args = string.Format("\\\\{0} -u {1} -p {2} -h {3} {4}", _guestIP, _username, _password, toExecute, cmdArgs);
+            if (workingDir == null)
+                workingDir = "C:\\";
+
+            string args = string.Format("\\\\{0} -u {1} -p {2} -w {5} -h {3} {4}", _guestIP, _username, _password, toExecute, cmdArgs, workingDir);
             ProcessStartInfo info = new ProcessStartInfo("psexec.exe", args);
             info.RedirectStandardError = true;
             info.RedirectStandardOutput = true;
@@ -59,15 +62,17 @@ namespace hypervisors
 
             string stderr = proc.StandardError.ReadToEnd();
             string stdout = proc.StandardOutput.ReadToEnd();
-            if (proc.ExitCode != 0)
-                throw new psExecException(stderr, proc.ExitCode);
+//            if (proc.ExitCode != 0)
+//                throw new psExecException(stderr, proc.ExitCode);
             Debug.WriteLine("psexec on " + _guestIP + ": " + stderr + " / " + stdout);
+
+            return new executionResult() {stdout = stdout, stderr = stderr, resultCode = proc.ExitCode};
         }
 
         public override void mkdir(string newDir)
         {
             string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, newDir.Substring(2));
-            int retries = 10;
+            int retries = 60;
             while (true)
             {
                 try
@@ -111,6 +116,38 @@ namespace hypervisors
                     using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
                     {
                         System.IO.File.Copy(srcpath, destUNC);
+                    }
+                    break;
+                }
+                catch (Win32Exception)
+                {
+                    if (retries-- == 0)
+                        throw;
+                }
+                catch (IOException)
+                {
+                    if (retries-- == 0)
+                        throw;
+                }
+                Thread.Sleep(TimeSpan.FromSeconds(1));
+            }
+        }
+
+        public override string getFileFromGuest(string srcpath)
+        {
+            if (!srcpath.ToLower().StartsWith("c:"))
+                throw new Exception("Only C:\\ is shared");
+
+            string srcUNC = string.Format("\\\\{0}\\C{1}", _guestIP, srcpath.Substring(2));
+
+            int retries = 10;
+            while (true)
+            {
+                try
+                {
+                    using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
+                    {
+                        return System.IO.File.ReadAllText(srcUNC);
                     }
                     break;
                 }

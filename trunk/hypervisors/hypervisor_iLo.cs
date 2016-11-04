@@ -87,7 +87,7 @@ namespace hypervisors
 
             // Now find the extent. We'll need to delete it before we can rollback the snapshot.
             List<iscsiExtent> extents = nas.getExtents();
-            iscsiExtent extent = extents.SingleOrDefault(x => _spec.snapshotName.StartsWith(x.iscsi_target_extent_name, StringComparison.CurrentCultureIgnoreCase));
+            iscsiExtent extent = extents.SingleOrDefault(x => _spec.snapshotName.Equals(x.iscsi_target_extent_name, StringComparison.CurrentCultureIgnoreCase));
             if (extent == null)
                 throw new Exception("Cannot find extent " + _spec.snapshotName);
 
@@ -118,11 +118,14 @@ namespace hypervisors
             // Wait until the host is up enough that we can ping it...
             WaitForStatus(true, TimeSpan.FromMinutes(6));
 
-            // Now wait for it to be up enough that we can psexec to it.
-            doWithRetryOnSomeExceptions(() =>
+            if (_nullHyp != null)
             {
-                startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
-            });
+                // Now wait for it to be up enough that we can psexec to it.
+                doWithRetryOnSomeExceptions(() =>
+                {
+                    _nullHyp.startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
+                });
+            }
         }
 
         public void WaitForStatus(bool waitForState, TimeSpan timeout = default(TimeSpan))
@@ -227,11 +230,18 @@ namespace hypervisors
             return ilo.getPowerStatus();
         }
 
-        public override void startExecutable(string toExecute, string args)
+        public override string getFileFromGuest(string srcpath)
         {
             if (_nullHyp == null)
                 throw new NotSupportedException();
-            _nullHyp.startExecutable(toExecute, args);
+            return _nullHyp.getFileFromGuest(srcpath);
+        }
+
+        public override executionResult startExecutable(string toExecute, string args, string workingdir = null)
+        {
+            if (_nullHyp == null)
+                throw new NotSupportedException();
+            return _nullHyp.startExecutable(toExecute, args, workingdir);
         }
 
         public override void mkdir(string newDir)
