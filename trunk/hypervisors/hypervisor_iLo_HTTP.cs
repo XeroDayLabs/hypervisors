@@ -224,9 +224,9 @@ namespace hypervisors
 
         public int getCurrentPowerUseW()
         {
-            ilo_resp_powersummary pwrResp = JsonConvert.DeserializeObject<ilo_resp_powersummary>(doRequest("power_summary", null, isPost: false));
+            ilo_resp_powerreadings pwrResp = JsonConvert.DeserializeObject<ilo_resp_powerreadings>(doRequest("power_readings", null, isPost: false));
 
-            return pwrResp.power_supply_input_power;
+            return pwrResp.present_power_reading;
         }
 
         public ilo_resp_healthfans getHealthOfFans()
@@ -328,6 +328,19 @@ namespace hypervisors
     public class ilo_resp_healthPSUs
     {
         public ilo_resp_healthPSU[] power_supplies;
+    }
+
+    public class ilo_resp_powerreadings
+    {
+        public string hostpwr_state;
+        public string fwver;
+        public int present_power_reading;
+        public int average_power_reading;
+        public int maximum_power_reading;
+        public int minimum_power_reading;
+        public string power_unit;
+        public string hem_mode;
+        public string enable_spsm;
     }
 
     public class ilo_resp_powersummary
