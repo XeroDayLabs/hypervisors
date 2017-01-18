@@ -17,7 +17,15 @@ namespace hyptool
             Parser parser = new CommandLine.Parser();
             hyptoolargs parsedArgs = new hyptoolargs();
             if (parser.ParseArgumentsStrict(args, parsedArgs, () => { Console.Write(HelpText.AutoBuild(parsedArgs).ToString()); }))
-               _Main(parsedArgs);
+            {
+                _Main(parsedArgs);
+            }
+            else
+            {
+                Console.WriteLine("Valid action values:");
+                foreach (string actionName in Enum.GetNames(typeof (hypervisorAction)))
+                    Console.WriteLine(" * '" + actionName + "'");
+            }
         }
 
         private static void _Main(hyptoolargs args)

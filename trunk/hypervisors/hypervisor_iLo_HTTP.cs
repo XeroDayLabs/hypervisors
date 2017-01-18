@@ -127,7 +127,7 @@ namespace hypervisors
                         if (resp.StatusCode == HttpStatusCode.Forbidden)
                         {
                             ilo_resp_error result = JsonConvert.DeserializeObject<ilo_resp_error>(contentString);
-                            if (result.message == "JS_ERR_LOST_SESSION")
+                            if (result != null && result.message == "JS_ERR_LOST_SESSION")
                                 throw new iloNoSessionException(result.details);
                         }
 
