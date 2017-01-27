@@ -56,6 +56,8 @@ namespace hyptool
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+
+            hyp.logout();
         }
 
         private static void doZabbix(string zbxServer, string ourHostname, hypervisor_iLo_HTTP hyp)

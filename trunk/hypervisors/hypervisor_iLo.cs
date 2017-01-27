@@ -273,5 +273,12 @@ namespace hypervisors
             FreeNAS nas = new FreeNAS(_spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
             getSnapshotObjectsFromNAS(nas, _spec.snapshotName);
         }
+
+        protected override void _Dispose()
+        {
+            ilo.logout();
+
+            base._Dispose();
+        }
     }
 }

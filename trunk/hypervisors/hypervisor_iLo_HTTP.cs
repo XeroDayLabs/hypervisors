@@ -39,6 +39,8 @@ namespace hypervisors
 
         private string doRequest(string pageName, string methodName, bool isPost = true)
         {
+            connect();
+
             int retriesLeft = retries;
             while (true)
             {
@@ -215,6 +217,11 @@ namespace hypervisors
             {
                 throw new Exception("iLo API call failed, no response");
             }            
+        }
+
+        public void logout()
+        {
+            doRequest("login_session", "logout");
         }
 
         public void powerOn()
