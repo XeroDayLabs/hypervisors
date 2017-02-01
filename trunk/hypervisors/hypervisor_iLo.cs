@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -6,12 +7,15 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Management.Automation;
+using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Remoting.Lifetime;
 using System.Threading;
 using Newtonsoft.Json.Linq;
+using Org.Mentalis.Network;
 
 namespace hypervisors
 {
@@ -71,10 +75,10 @@ namespace hypervisors
                 }
             }
 
-            // Finally, re-add the extent and target-to-extent mapping.
+            // Re-add the extent and target-to-extent mapping.
             iscsiExtent newExtent = nas.addISCSIExtent(shotObjects.extent);
             nas.addISCSITargetToExtent(shotObjects.tgtToExtent.iscsi_target, newExtent);
-
+            
             powerOn();
         }
 
@@ -145,25 +149,12 @@ namespace hypervisors
 
                 if (waitForState)
                 {
-                    try
+                    Icmp pinger = new Org.Mentalis.Network.Icmp(IPAddress.Parse(_spec.kernelDebugIPOrHostname));
+                    if (pinger.Ping(500) != TimeSpan.MaxValue)
                     {
-                        using (Ping pinger = new Ping())
-                        {
-                            PingReply resp = pinger.Send(_spec.kernelDebugIPOrHostname, 500);
-
-                            if (resp.Status == IPStatus.Success)
-                            {
-                                // FIXME: proper detection pls!
-                                Debug.Print(".. Box " + _spec.iLoHostname + " pingable, giving it a few more seconds..");
-                                Thread.Sleep(10 * 1000);
-                                break;
-                            }
-                        }
-                    }
-                    catch (System.Net.NetworkInformation.PingException)
-                    {
-                        // The 'ping' will throw a System.Exception under certain conditions.
-                        // Just swallow it.
+                        Debug.Print(".. Box " + _spec.iLoHostname + " pingable, giving it a few more seconds..");
+                        Thread.Sleep(10*1000);
+                        break;
                     }
                 }
                 else
@@ -208,6 +199,14 @@ namespace hypervisors
                     }
                 }
                 catch (psExecException)
+                {
+                    if (maxRetries != 0)
+                    {
+                        if (retries-- == 0)
+                            throw;
+                    }
+                }
+                catch (hypervisorExecutionException)
                 {
                     if (maxRetries != 0)
                     {

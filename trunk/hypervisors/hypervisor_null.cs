@@ -52,8 +52,15 @@ namespace hypervisors
             string cmdargs = String.Format("/c {0} {1} 1> {2} 2> {3}", toExecute, args, stdoutfilename, stderrfilename);
             executionResult toRet = new executionResult();
             toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir); ;
-            toRet.stdout = getFileFromGuest(stdoutfilename);
-            toRet.stderr = getFileFromGuest(stderrfilename);
+            try
+            {
+                toRet.stdout = getFileFromGuest(stdoutfilename);
+                toRet.stderr = getFileFromGuest(stderrfilename);
+            }
+            catch (FileNotFoundException)
+            {
+                throw new hypervisorExecutionException();
+            }
 
             return toRet;
         }
@@ -159,7 +166,6 @@ namespace hypervisors
                     {
                         return System.IO.File.ReadAllText(srcUNC);
                     }
-                    break;
                 }
                 catch (Win32Exception)
                 {
@@ -174,5 +180,10 @@ namespace hypervisors
                 Thread.Sleep(TimeSpan.FromSeconds(1));
             }
         }
+    }
+
+    [Serializable]
+    public class hypervisorExecutionException : Exception
+    {
     }
 }
