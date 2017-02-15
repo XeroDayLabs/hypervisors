@@ -34,6 +34,9 @@ namespace hypervisors
 
         public void powerOff()
         {
+            if (getPowerStatus() == false)
+                return;
+
             doRequest("host_power", "hold_power_button");            
         }
 
@@ -226,6 +229,9 @@ namespace hypervisors
 
         public void powerOn()
         {
+            if (getPowerStatus() == true)
+                return;
+
             doRequest("host_power", "press_power_button");
         }
 

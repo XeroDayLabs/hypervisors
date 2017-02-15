@@ -116,7 +116,7 @@ namespace hypervisors
             }
         }
 
-        public override void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string srcpath, string dstpath, bool ignoreExisting)
         {   
             if (!dstpath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
@@ -132,6 +132,13 @@ namespace hypervisors
                 {
                     using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
                     {
+                        if (File.Exists(destUNC))
+                        {
+                            if (ignoreExisting)
+                                break;
+                            throw new Exception("File " + destUNC + " already exists on target");
+                        }
+
                         System.IO.File.Copy(srcpath, destUNC);
                     }
                     break;
@@ -167,10 +174,21 @@ namespace hypervisors
                         return System.IO.File.ReadAllText(srcUNC);
                     }
                 }
-                catch (Win32Exception)
+                catch (Win32Exception e)
                 {
+                    if (e.NativeErrorCode == 1219)
+                    {
+                        // This is ERROR_SESSION_CREDENTIAL_CONFLICT.
+                        // It indicates we need manual intervention.
+                        throw;
+                    }
+
                     if (retries-- == 0)
                         throw;
+                }
+                catch (FileNotFoundException)
+                {
+                    return null;
                 }
                 catch (IOException)
                 {

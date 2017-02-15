@@ -78,8 +78,8 @@ namespace hypervisors
             // Re-add the extent and target-to-extent mapping.
             iscsiExtent newExtent = nas.addISCSIExtent(shotObjects.extent);
             nas.addISCSITargetToExtent(shotObjects.tgtToExtent.iscsi_target, newExtent);
-            
-            powerOn();
+
+//            powerOn();
         }
 
         private snapshotObjects getSnapshotObjectsFromNAS(FreeNAS nas, string fullName)
@@ -150,7 +150,8 @@ namespace hypervisors
                 if (waitForState)
                 {
                     Icmp pinger = new Org.Mentalis.Network.Icmp(IPAddress.Parse(_spec.kernelDebugIPOrHostname));
-                    if (pinger.Ping(500) != TimeSpan.MaxValue)
+                    TimeSpan res = pinger.Ping(500);
+                    if (res != TimeSpan.MaxValue)
                     {
                         Debug.Print(".. Box " + _spec.iLoHostname + " pingable, giving it a few more seconds..");
                         Thread.Sleep(10*1000);
@@ -221,8 +222,17 @@ namespace hypervisors
 
         public override void powerOff()
         {
+            DateTime deadline = DateTime.Now + TimeSpan.FromSeconds(20);
+
             ilo.powerOff();
+            while (ilo.getPowerStatus())
+            {
+                Thread.Sleep(TimeSpan.FromMilliseconds(500));
+                if (deadline < DateTime.Now)
+                    throw new Exception("Failed to turn off machine via iLo");
+            }
         }
+
 
         private bool getPowerStatus()
         {
@@ -255,11 +265,11 @@ namespace hypervisors
             return _spec;
         }
 
-        public override void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string srcpath, string dstpath, bool ignoreExisting = false)
         {
             if (_nullHyp == null)
                 throw new NotSupportedException();
-            _nullHyp.copyToGuest(srcpath, dstpath);
+            _nullHyp.copyToGuest(srcpath, dstpath, ignoreExisting);
         }
 
         public override string ToString()

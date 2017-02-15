@@ -154,19 +154,19 @@ namespace hypervisors
             }, TimeSpan.FromSeconds(1), 10  );
         }
         
-        public override void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string srcpath, string dstpath, bool ignoreExising)
         {
             doWithRetryOnSomeExceptions(() =>
             {
                 lock (VMWareLock)
                 {
-                    _copyToGuest(srcpath, dstpath);
+                    _copyToGuest(srcpath, dstpath, ignoreExising);
                 }
                 return null;
             }, TimeSpan.FromMilliseconds(100), 100);
         }
 
-        private void _copyToGuest(string srcpath, string dstpath)
+        private void _copyToGuest(string srcpath, string dstpath, bool ignoreExisting)
         {
             NamePasswordAuthentication Auth = new NamePasswordAuthentication
             {

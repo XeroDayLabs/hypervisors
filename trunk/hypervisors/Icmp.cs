@@ -107,7 +107,13 @@ namespace Org.Mentalis.Network {
 				buffer = new byte[buffer.Length + 20];
                 if (ClientSocket.ReceiveFrom(buffer, ref remoteEP) <= 0)
 					throw new SocketException();
-			} catch (SocketException e) {
+
+                // Aliz: edited to return success only on ICMP echo responses, not all ICMP
+			    IcmpMessage response = IcmpMessage.fromBytes(buffer);
+                if (!Equals(response.src, Host) || response.Type != 0 || response.Type != 0)
+                    return TimeSpan.MaxValue;
+
+            } catch (SocketException e) {
 				if (HasTimedOut)
 					return TimeSpan.MaxValue;
 				else
@@ -299,6 +305,36 @@ namespace Org.Mentalis.Network {
 		private byte m_Code = 0;
 		/// <summary>Holds the value of the CheckSum property.</summary>
 		private ushort m_CheckSum = 0;
+
+        public IPAddress src;
+        public IPAddress dst;
+
+        public static IcmpMessage fromBytes(byte[] buffer)
+	    {
+            IcmpMessage toRet = new EchoMessage();
+
+            // I am so lazy today
+	        if (buffer[0] != 0x45 || buffer[9] != 0x01)
+	            return null;
+
+            long srcDword = (buffer[0x0f] << 24) |
+                            (buffer[0x0e] << 16) |
+                            (buffer[0x0d] <<  8) |
+                            (buffer[0x0c]      );
+            long dstDword = (buffer[0x13] << 24) |
+                            (buffer[0x12] << 16) |
+                            (buffer[0x11] <<  8) |
+                            (buffer[0x10]      );
+
+            toRet.src = new IPAddress(srcDword & 0xffffffff);
+            toRet.dst = new IPAddress(dstDword & 0xffffffff);
+
+            toRet.Type = buffer[0x14];
+            toRet.Code = buffer[0x15];
+	        toRet.CheckSum = (ushort) ((ushort) (buffer[0x16] << 8) + buffer[0x17]);
+
+            return toRet;
+	    }
 	}
 	
 	/// <summary>

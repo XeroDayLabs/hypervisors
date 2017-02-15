@@ -9,7 +9,7 @@ namespace hypervisors
         public abstract void connect();
         public abstract void powerOn();
         public abstract void powerOff();
-        public abstract void copyToGuest(string srcpath, string dstpath);
+        public abstract void copyToGuest(string srcpath, string dstpath, bool ignoreExisting = false);
         public abstract string getFileFromGuest(string srcpath);
         public abstract executionResult startExecutable(string toExecute, string args, string workingDir = null);
         public abstract void mkdir(string newDir);
@@ -23,13 +23,18 @@ namespace hypervisors
         {
         }
 
-        public void copyDirToGuest(string src, string dest)
+        public void copyDirToGuest(string src, string dest, bool ignoreErrors = false)
         {
-            mkdir(dest);
+            if (!File.Exists(dest))
+                mkdir(dest);
             foreach (string srcName in Directory.GetFiles(src))
-                copyToGuest(srcName, dest + "\\");
+            {
+                copyToGuest(srcName, dest + "\\", ignoreErrors);
+            }
             foreach (string srcName in Directory.GetDirectories(src))
-                copyDirToGuest(srcName, Path.Combine(dest, Path.GetFileName(srcName)) );
+            {
+                copyDirToGuest(srcName, Path.Combine(dest, Path.GetFileName(srcName)), ignoreErrors);
+            }
         }
     }
 

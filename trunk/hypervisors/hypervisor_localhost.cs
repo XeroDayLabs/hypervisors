@@ -43,12 +43,17 @@ namespace hypervisors
             throw new NotImplementedException();
         }
 
-        public override void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string srcpath, string dstpath, bool ignoreExisting)
         {
             if (dstpath.EndsWith("\\"))
                 dstpath += Path.GetFileName(srcpath);
             if (File.Exists(dstpath))
-                File.Delete(dstpath);
+            {
+                if (ignoreExisting)
+                    return;
+                throw  new Exception("File " + dstpath + " already exists");
+            }
+
             File.Copy(srcpath, dstpath);
         }
 
