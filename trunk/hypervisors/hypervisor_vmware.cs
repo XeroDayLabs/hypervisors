@@ -237,20 +237,32 @@ namespace hypervisors
 
         public override executionResult startExecutable(string toExecute, string args, string workingDir = null)
         {
-            string stdoutfilename = string.Format("C:\\users\\{0}\\hyp_stdout.txt", _spec.kernelVMUsername);
             // Execute via cmd.exe so we can capture stdout.
-            string cmdargs = String.Format("/c \"{0}\" {1} > {2}", toExecute, args, stdoutfilename);
-            executionResult toRet = new executionResult();
-            _startExecutable("cmd.exe", cmdargs, true, workingDir);
-            toRet.resultCode = 0;
-            toRet.stdout = _getFileFromGuest(stdoutfilename);
+            string stdoutfilename = string.Format("C:\\windows\\temp\\hyp_stdout.txt");
+            string stderrfilename = string.Format("C:\\windows\\temp\\hyp_stderr.txt");
 
-            return toRet;
+            string cmdargs = String.Format("/c \"{0}\" {1}", toExecute, args);
+            cmdargs += "1> " + stdoutfilename;
+            cmdargs += "2> " + stderrfilename;
+            _startExecutable("cmd.exe", cmdargs, true, workingDir);
+
+            return new executionResult()
+            {
+                stderr = getFileFromGuest(stderrfilename),
+                stdout = getFileFromGuest(stdoutfilename)
+            };
         }
 
-        public void startExecutableAsync(string toExecute, string args)
+        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null)
         {
-            _startExecutable(toExecute, args, false);
+            // Execute via cmd.exe so we can capture stdout.
+            string cmdargs = String.Format("/c \"{0}\" {1} > {2}", toExecute, args, stdoutfilename);
+            if (stdoutfilename != null)
+                cmdargs += "1> " + stdoutfilename;
+            if (stderrfilename != null)
+                cmdargs += "2> " + stderrfilename;
+            executionResult toRet = new executionResult();
+            _startExecutable("cmd.exe", cmdargs, false, workingDir);
         }
 
         private void _startExecutable(string toExecute, string args, bool waitForExit, string workingDir = null)

@@ -150,7 +150,7 @@ namespace hypervisors
                 if (waitForState)
                 {
                     Icmp pinger = new Org.Mentalis.Network.Icmp(IPAddress.Parse(_spec.kernelDebugIPOrHostname));
-                    TimeSpan res = pinger.Ping(500);
+                    TimeSpan res = pinger.Ping(TimeSpan.FromMilliseconds(500));
                     if (res != TimeSpan.MaxValue)
                     {
                         Debug.Print(".. Box " + _spec.iLoHostname + " pingable, giving it a few more seconds..");
@@ -164,7 +164,7 @@ namespace hypervisors
                         break;
                 }
 
-                Thread.Sleep(500);
+                Thread.Sleep(5000);
             }
 
             Debug.Print(".. wait complete for box " + _spec.iLoHostname);
@@ -251,6 +251,13 @@ namespace hypervisors
             if (_nullHyp == null)
                 throw new NotSupportedException();
             return _nullHyp.startExecutable(toExecute, args, workingdir);
+        }
+
+        public override void startExecutableAsync(string toExecute, string args, string workingdir = null, string stdoutfilename = null, string stderrfilename = null)
+        {
+            if (_nullHyp == null)
+                throw new NotSupportedException();
+            _nullHyp.startExecutableAsync(toExecute, args, workingdir, stdoutfilename, stderrfilename);
         }
 
         public override void mkdir(string newDir)

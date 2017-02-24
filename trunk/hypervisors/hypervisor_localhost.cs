@@ -68,10 +68,32 @@ namespace hypervisors
                 workingDir = "C:\\";
 
             ProcessStartInfo ps = new ProcessStartInfo(toExecute, args);
+            ps.UseShellExecute = false;
+            ps.RedirectStandardError = true;
+            ps.RedirectStandardOutput = true;
             ps.WorkingDirectory = workingDir;
             _p = Process.Start(ps);
+            _p.WaitForExit();
 
-            return null;
+            return new executionResult()
+            {
+                resultCode = _p.ExitCode,
+                stderr = _p.StandardError.ReadToEnd(),
+                stdout = _p.StandardOutput.ReadToEnd()
+            };
+        }
+
+        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null)
+        {
+            if (workingDir == null)
+                workingDir = "C:\\";
+
+            if (stdoutfilename != null || stderrfilename != null)
+                throw new NotSupportedException();
+
+            ProcessStartInfo ps = new ProcessStartInfo(toExecute, args);
+            ps.WorkingDirectory = workingDir;
+            _p = Process.Start(ps);
         }
 
         public override void mkdir(string newDir)

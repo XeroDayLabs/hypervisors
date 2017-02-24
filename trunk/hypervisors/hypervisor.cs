@@ -11,7 +11,8 @@ namespace hypervisors
         public abstract void powerOff();
         public abstract void copyToGuest(string srcpath, string dstpath, bool ignoreExisting = false);
         public abstract string getFileFromGuest(string srcpath);
-        public abstract executionResult startExecutable(string toExecute, string args, string workingDir = null);
+        public abstract executionResult startExecutable(string toExecute, string args, string workingdir = null);
+        public abstract void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null);
         public abstract void mkdir(string newDir);
 
         public void Dispose()

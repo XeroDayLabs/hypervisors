@@ -46,12 +46,13 @@ namespace hypervisors
 
         public override executionResult startExecutable(string toExecute, string args, string workingDir = null)
         {
+            // Execute via cmd.exe so we can capture stdout.
             string stdoutfilename = string.Format("C:\\users\\{0}\\hyp_stdout.txt", _username);
             string stderrfilename = string.Format("C:\\users\\{0}\\hyp_stderr.txt", _username);
-            // Execute via cmd.exe so we can capture stdout.
             string cmdargs = String.Format("/c {0} {1} 1> {2} 2> {3}", toExecute, args, stdoutfilename, stderrfilename);
             executionResult toRet = new executionResult();
-            toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir); ;
+            toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, false); ;
+
             try
             {
                 toRet.stdout = getFileFromGuest(stdoutfilename);
@@ -65,12 +66,26 @@ namespace hypervisors
             return toRet;
         }
 
-        public int _startExecutable(string toExecute, string cmdArgs, string workingDir = null)
+        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null)
+        {
+            // Execute via cmd.exe so we can capture stdout.
+            string cmdargs = String.Format("/c  {0} {1} ", toExecute, args);
+            if (stdoutfilename != null)
+                cmdargs += " 1> " + stdoutfilename;
+            if (stderrfilename != null)
+                cmdargs += " 2> " + stderrfilename;
+
+            executionResult toRet = new executionResult();
+            toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, true);
+        }
+
+        private int _startExecutable(string toExecute, string cmdArgs, string workingDir = null, bool detach = false)
         {
             if (workingDir == null)
                 workingDir = "C:\\";
 
-            string args = string.Format("\\\\{0} -u {1} -p {2} -w {5} -h {3} {4}", _guestIP, _username, _password, toExecute, cmdArgs, workingDir);
+            string args = string.Format("\\\\{0} -i {6} -u {1} -p {2} -w {5} -h {3} {4}"
+                , _guestIP, _username, _password, toExecute, cmdArgs, workingDir, detach ? " -d " : "");
             ProcessStartInfo info = new ProcessStartInfo("psexec.exe", args);
             info.RedirectStandardError = true;
             info.RedirectStandardOutput = true;
@@ -81,8 +96,6 @@ namespace hypervisors
 
             proc.WaitForExit();
 
-//            if (proc.ExitCode != 0)
-//                throw new psExecException(stderr, proc.ExitCode);
             return proc.ExitCode;
         }
 
@@ -164,14 +177,20 @@ namespace hypervisors
 
             string srcUNC = string.Format("\\\\{0}\\C{1}", _guestIP, srcpath.Substring(2));
 
-            int retries = 10;
+            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(5);
             while (true)
             {
                 try
                 {
                     using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
                     {
-                        return System.IO.File.ReadAllText(srcUNC);
+                        using (FileStream srcFile = File.Open(srcUNC, FileMode.Open, FileAccess.Read, FileShare.None))
+                        {
+                            using (StreamReader srcReader = new StreamReader(srcFile))
+                            {
+                                return srcReader.ReadToEnd();
+                            }
+                        }
                     }
                 }
                 catch (Win32Exception e)
@@ -183,19 +202,21 @@ namespace hypervisors
                         throw;
                     }
 
-                    if (retries-- == 0)
+                    if (DateTime.Now > deadline)
                         throw;
+
+                    // retry on other win32 exceptions
                 }
-                catch (FileNotFoundException)
-                {
-                    return null;
-                }
-                catch (IOException)
-                {
-                    if (retries-- == 0)
-                        throw;
-                }
-                Thread.Sleep(TimeSpan.FromSeconds(1));
+//                catch (FileNotFoundException)
+//                {
+//                    return null;
+//                }
+//                catch (IOException)
+//                {
+//                    if (DateTime.Now > deadline)
+//                        throw;
+//                }
+                Thread.Sleep(TimeSpan.FromSeconds(5));
             }
         }
     }

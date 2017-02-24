@@ -58,7 +58,7 @@ namespace Org.Mentalis.Network {
 		protected byte[] GetEchoMessageBuffer() {
 			EchoMessage message = new EchoMessage();
 			message.Type = 8;	// ICMP echo
-			message.Data = new Byte[1500];  // aliz modification: this is grossly oversized to prevent the socketException I'm seeing: "... the buffer used to receive a datagram into was smaller than the datagram itself"
+			message.Data = new Byte[1300];  // aliz modification: this is grossly oversized to prevent the socketException I'm seeing: "... the buffer used to receive a datagram into was smaller than the datagram itself"
 			for (int i = 0; i < 32; i++) {
 				message.Data[i] = 32;	// Send spaces
 			}
@@ -84,63 +84,64 @@ namespace Org.Mentalis.Network {
 		public TimeSpan Ping() {
 			return Ping(1000);
 		}
-		/// <summary>
-		/// Initiates an ICMP ping.
-		/// </summary>
-		/// <param name="timeout">Specifies the timeout in milliseconds. If this value is set to Timeout.Infinite, the method will never time out.</param>
-		/// <returns>A TimeSpan object that holds the time it takes for a packet to travel to the remote server and back. A value of TimeSpan.MaxValue indicates a timeout.</returns>
-		public TimeSpan Ping(int timeout) {
-			TimeSpan ret;
-			EndPoint remoteEP = new IPEndPoint(Host, 0);
-			ClientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Raw, ProtocolType.Icmp);
-			// Get the ICMP message
-			byte [] buffer = GetEchoMessageBuffer();
-			// Set the timeout timer
-			HasTimedOut = false;
-			PingTimeOut = new Timer(new TimerCallback(PingTimedOut), null, timeout, Timeout.Infinite);
-			// Get the current time
-			StartTime = DateTime.Now;
-			// Send the ICMP message and receive the reply
-			try {
-				if (ClientSocket.SendTo(buffer, remoteEP) <= 0)
-					throw new SocketException();
-				buffer = new byte[buffer.Length + 20];
-                if (ClientSocket.ReceiveFrom(buffer, ref remoteEP) <= 0)
-					throw new SocketException();
 
-                // Aliz: edited to return success only on ICMP echo responses, not all ICMP
-			    IcmpMessage response = IcmpMessage.fromBytes(buffer);
-                if (!Equals(response.src, Host) || response.Type != 0 || response.Type != 0)
-                    return TimeSpan.MaxValue;
+	    public TimeSpan Ping(TimeSpan timeout)
+	    {
+	        return Ping((int) timeout.TotalMilliseconds);
+	    }
 
-            } catch (SocketException e) {
-				if (HasTimedOut)
-					return TimeSpan.MaxValue;
-				else
-					throw e;
-			} finally {
-				// Close the socket
-				ClientSocket.Close();
-				ClientSocket = null;
-				// destroy the timer
-				PingTimeOut.Change(Timeout.Infinite, Timeout.Infinite);
-				PingTimeOut.Dispose();
-				PingTimeOut = null;
-			}
-			// Get the time
-			ret = DateTime.Now.Subtract(StartTime);
-			return ret;
+	    /// <summary>
+        /// Initiates an ICMP ping.
+        /// </summary>
+        /// <param name="timeout">Specifies the timeout in milliseconds. If this value is set to Timeout.Infinite, the method will never time out.</param>
+        /// <returns>A TimeSpan object that holds the time it takes for a packet to travel to the remote server and back. A value of TimeSpan.MaxValue indicates a timeout.</returns>
+        public TimeSpan Ping(int timeout)
+        {
+		    EndPoint remoteEP = new IPEndPoint(Host, 0);
+	        using (Socket ClientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Raw, ProtocolType.Icmp))
+	        {
+	            byte[] buffer = GetEchoMessageBuffer();
+	            StartTime = DateTime.Now;
+	            // Send the ICMP message and receive the reply
+	            if (ClientSocket.SendTo(buffer, remoteEP) <= 0)
+	                throw new SocketException();
+	            buffer = new byte[buffer.Length + 20];
+	            SocketError err = SocketError.VersionNotSupported;
+	            bool recvCBFinished = false;
+	            IAsyncResult hnd = ClientSocket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, (ar) =>
+	            {
+	                try
+	                {
+                        ClientSocket.EndReceive(ar, out err);
+                    }
+                    catch (ObjectDisposedException)
+	                {
+                        // Ugh, this is the only way to abort a BeginReceive :((
+	                }
+
+	                recvCBFinished = true;
+	            }, ClientSocket);
+
+	            if (!hnd.AsyncWaitHandle.WaitOne(timeout))
+	            {
+	                // timed out!
+	                ClientSocket.Close();
+	                return TimeSpan.MaxValue;
+	            }
+
+                while (!recvCBFinished)
+	                Thread.Yield();
+                ClientSocket.Close();
+
+                if (err != SocketError.Success && err != SocketError.MessageSize)
+	                throw new SocketException((int) err);
+	            IcmpMessage response = IcmpMessage.fromBytes(buffer);
+	            if (!Equals(response.src, Host) || response.Type != 0 || response.Type != 0)
+	                return TimeSpan.MaxValue;
+	        }
+	        return DateTime.Now.Subtract(StartTime);
 		}
-		/// <summary>
-		/// Called when the ping method times out.
-		/// </summary>
-		/// <param name="state">The source of the event. This is an object containing application-specific information relevant to the methods invoked by this delegate, or a null reference (Nothing in Visual Basic).</param>
-		protected void PingTimedOut(object state) {
-			HasTimedOut = true;
-			// Close the socket (this will result in a throw of a SocketException in the Ping method)
-			if (ClientSocket != null)
-				ClientSocket.Close();
-		}
+
 		/// <summary>
 		/// Gets or sets the address of the remote host to communicate with.
 		/// </summary>
@@ -157,18 +158,6 @@ namespace Org.Mentalis.Network {
 			}
 		}
 		/// <summary>
-		/// Gets or sets the Socket that is used to communicate with the remote server.
-		/// </summary>
-		/// <value>A Socket object that is used to communicate with the remote server.</value>
-		protected Socket ClientSocket {
-			get {
-				return m_ClientSocket;
-			}
-			set {
-				m_ClientSocket = value;
-			}
-		}
-		/// <summary>
 		/// Gets or sets the time when the ping began/begins.
 		/// </summary>
 		/// <value>A DateTime object that specifies when the ping began.</value>
@@ -180,48 +169,11 @@ namespace Org.Mentalis.Network {
 				m_StartTime = value;
 			}
 		}
-		/// <summary>
-		/// Gets or sets the timer that triggers the PingTimedOut method.
-		/// </summary>
-		/// <value>A Timer object that triggers the PingTimedOut method.</value>
-		protected Timer PingTimeOut {
-			get {
-				return m_PingTimeOut;
-			}
-			set {
-				m_PingTimeOut = value;
-			}
-		}
-		/// <summary>
-		/// Gets or sets a value that indicates whether the ping has timed out or not.
-		/// </summary>
-		/// <value>A boolean value that indicates whether the ping has timed out or not.</value>
-		protected bool HasTimedOut {
-			get {
-				return m_HasTimedOut;
-			}
-			set {
-				m_HasTimedOut = value;
-			}
-		}
-		/// <summary>
-		/// Releases all the resources.
-		/// </summary>
-		~Icmp() {
-			if (ClientSocket != null)
-				ClientSocket.Close();
-		}
 		// Private variables
 		/// <summary>Stores the value of the Host property.</summary>
 		private IPAddress m_Host;
-		/// <summary>Stores the value of the ClientSocket property.</summary>
-		private Socket m_ClientSocket;
 		/// <summary>Stores the value of the StartTime property.</summary>
 		private DateTime m_StartTime;
-		/// <summary>Stores the value of the PingTimeOut property.</summary>
-		private Timer m_PingTimeOut;
-		/// <summary>Stores the value of the HasTimedOut property.</summary>
-		private bool m_HasTimedOut;
 	}
 	
 	/// <summary>
