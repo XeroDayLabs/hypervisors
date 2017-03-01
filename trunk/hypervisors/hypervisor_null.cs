@@ -47,8 +47,8 @@ namespace hypervisors
         public override executionResult startExecutable(string toExecute, string args, string workingDir = null)
         {
             // Execute via cmd.exe so we can capture stdout.
-            string stdoutfilename = string.Format("C:\\users\\{0}\\hyp_stdout.txt", _username);
-            string stderrfilename = string.Format("C:\\users\\{0}\\hyp_stderr.txt", _username);
+            string stdoutfilename = string.Format("C:\\users\\{0}\\hyp_stdout_{1}.txt", _username, Guid.NewGuid().ToString());
+            string stderrfilename = string.Format("C:\\users\\{0}\\hyp_stderr_{1}.txt", _username, Guid.NewGuid().ToString());
             string cmdargs = String.Format("/c {0} {1} 1> {2} 2> {3}", toExecute, args, stdoutfilename, stderrfilename);
             executionResult toRet = new executionResult();
             toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, false); ;
