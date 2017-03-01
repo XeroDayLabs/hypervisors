@@ -253,11 +253,11 @@ namespace hypervisors
             return _nullHyp.startExecutable(toExecute, args, workingdir);
         }
 
-        public override void startExecutableAsync(string toExecute, string args, string workingdir = null, string stdoutfilename = null, string stderrfilename = null)
+        public override void startExecutableAsync(string toExecute, string args, string workingdir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
         {
             if (_nullHyp == null)
                 throw new NotSupportedException();
-            _nullHyp.startExecutableAsync(toExecute, args, workingdir, stdoutfilename, stderrfilename);
+            _nullHyp.startExecutableAsync(toExecute, args, workingdir, stdoutfilename, stderrfilename, retCodeFilename);
         }
 
         public override void mkdir(string newDir)

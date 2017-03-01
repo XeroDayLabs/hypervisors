@@ -83,12 +83,12 @@ namespace hypervisors
             };
         }
 
-        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null)
+        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
         {
             if (workingDir == null)
                 workingDir = "C:\\";
 
-            if (stdoutfilename != null || stderrfilename != null)
+            if (stdoutfilename != null || stderrfilename != null || retCodeFilename != null)
                 throw new NotSupportedException();
 
             ProcessStartInfo ps = new ProcessStartInfo(toExecute, args);

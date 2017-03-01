@@ -66,7 +66,7 @@ namespace hypervisors
             return toRet;
         }
 
-        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null)
+        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
         {
             // Execute via cmd.exe so we can capture stdout.
             string cmdargs = String.Format("/c  {0} {1} ", toExecute, args);
@@ -74,6 +74,8 @@ namespace hypervisors
                 cmdargs += " 1> " + stdoutfilename;
             if (stderrfilename != null)
                 cmdargs += " 2> " + stderrfilename;
+            if (retCodeFilename != null)
+                cmdargs += " & echo %errorlevel% > " + retCodeFilename;
 
             executionResult toRet = new executionResult();
             toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, true);
@@ -84,7 +86,7 @@ namespace hypervisors
             if (workingDir == null)
                 workingDir = "C:\\";
 
-            string args = string.Format("\\\\{0} -i {6} -u {1} -p {2} -w {5} -h {3} {4}"
+            string args = string.Format("\\\\{0} {6} -u {1} -p {2} -w {5} -h {3} {4}"
                 , _guestIP, _username, _password, toExecute, cmdArgs, workingDir, detach ? " -d " : "");
             ProcessStartInfo info = new ProcessStartInfo("psexec.exe", args);
             info.RedirectStandardError = true;

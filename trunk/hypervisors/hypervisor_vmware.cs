@@ -253,7 +253,7 @@ namespace hypervisors
             };
         }
 
-        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null)
+        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
         {
             // Execute via cmd.exe so we can capture stdout.
             string cmdargs = String.Format("/c \"{0}\" {1} > {2}", toExecute, args, stdoutfilename);
@@ -261,7 +261,9 @@ namespace hypervisors
                 cmdargs += "1> " + stdoutfilename;
             if (stderrfilename != null)
                 cmdargs += "2> " + stderrfilename;
-            executionResult toRet = new executionResult();
+            if (retCodeFilename != null)
+                cmdargs += " & echo %ERRORLEVEL% > " + retCodeFilename;
+
             _startExecutable("cmd.exe", cmdargs, false, workingDir);
         }
 
