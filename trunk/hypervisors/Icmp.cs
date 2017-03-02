@@ -103,8 +103,31 @@ namespace Org.Mentalis.Network {
 	            byte[] buffer = GetEchoMessageBuffer();
 	            StartTime = DateTime.Now;
 	            // Send the ICMP message and receive the reply
-	            if (ClientSocket.SendTo(buffer, remoteEP) <= 0)
-	                throw new SocketException();
+                // I reaaaaaallly hate this design in the framework - there's an overload of Socket.send and socket.Recieve which 
+                // will return an error code on failure, instead of throwing, but there is no analogue for the .SendTo and .ReceiveFrom
+                // methods. Because of this, we need to try/catch, and just ignore the "buffer too small" exceptions D:
+	            while (true)
+	            {
+	                try
+	                {
+	                    ClientSocket.SendTo(buffer, remoteEP);
+	                    break;
+	                }
+	                catch (SocketException se)
+	                {
+	                    if (se.ErrorCode == 10055)
+	                    {
+	                        // This is "An operation on a socket could not be performed because the system lacked sufficient 
+	                        // buffer space or because a queue was full."
+	                        // We'll retry after a short delay.
+                            Thread.Sleep(TimeSpan.FromSeconds(3));
+	                    }
+	                    else
+	                    {
+	                        throw;
+	                    }
+	                }
+	            }
 	            buffer = new byte[buffer.Length + 20];
 	            SocketError err = SocketError.VersionNotSupported;
 	            bool recvCBFinished = false;
