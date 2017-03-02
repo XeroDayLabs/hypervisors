@@ -94,11 +94,20 @@ namespace hypervisors
             info.UseShellExecute = false;
             info.WindowStyle = ProcessWindowStyle.Normal;
 
-            Process proc = Process.Start(info);
+            while (true)
+            {
+                Process proc = Process.Start(info);
 
-            proc.WaitForExit();
+                proc.WaitForExit();
 
-            return proc.ExitCode;
+                string stdout = proc.StandardOutput.ReadToEnd();
+                string stderr = proc.StandardError.ReadToEnd();
+
+                if (proc.ExitCode != 6)
+                    return proc.ExitCode;
+
+                Thread.Sleep(TimeSpan.FromSeconds(5));
+            }
         }
 
         public override void mkdir(string newDir)
@@ -131,7 +140,7 @@ namespace hypervisors
             }
         }
 
-        public override void copyToGuest(string srcpath, string dstpath, bool ignoreExisting)
+        public override void copyToGuest(string srcpath, string dstpath, bool ignoreExisting = false)
         {   
             if (!dstpath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
@@ -140,7 +149,7 @@ namespace hypervisors
             if (destUNC.EndsWith("\\"))
                 destUNC += Path.GetFileName(srcpath);
 
-            int retries = 10;
+            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
             while (true)
             {
                 try
@@ -160,12 +169,12 @@ namespace hypervisors
                 }
                 catch (Win32Exception)
                 {
-                    if (retries-- == 0)
+                    if (DateTime.Now > deadline)
                         throw;
                 }
                 catch (IOException)
                 {
-                    if (retries-- == 0)
+                    if (DateTime.Now > deadline)
                         throw;
                 }
                 Thread.Sleep(TimeSpan.FromSeconds(1));
