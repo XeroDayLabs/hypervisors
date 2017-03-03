@@ -241,7 +241,7 @@ namespace hypervisors
             string stdoutfilename = string.Format("C:\\windows\\temp\\hyp_stdout.txt");
             string stderrfilename = string.Format("C:\\windows\\temp\\hyp_stderr.txt");
 
-            string cmdargs = String.Format("/c \"{0}\" {1}", toExecute, args);
+            string cmdargs = String.Format("/c {0} {1} ", toExecute, args);
             cmdargs += "1> " + stdoutfilename;
             cmdargs += "2> " + stderrfilename;
             _startExecutable("cmd.exe", cmdargs, true, workingDir);
@@ -256,7 +256,7 @@ namespace hypervisors
         public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
         {
             // Execute via cmd.exe so we can capture stdout.
-            string cmdargs = String.Format("/c \"{0}\" {1} > {2}", toExecute, args, stdoutfilename);
+            string cmdargs = String.Format("/c {0} {1} ", toExecute, args);
             if (stdoutfilename != null)
                 cmdargs += "1> " + stdoutfilename;
             if (stderrfilename != null)
