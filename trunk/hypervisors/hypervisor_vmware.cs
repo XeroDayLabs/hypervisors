@@ -242,8 +242,8 @@ namespace hypervisors
             string stderrfilename = string.Format("C:\\windows\\temp\\hyp_stderr.txt");
 
             string cmdargs = String.Format("/c {0} {1} ", toExecute, args);
-            cmdargs += "1> " + stdoutfilename;
-            cmdargs += "2> " + stderrfilename;
+            cmdargs += " 1> " + stdoutfilename;
+            cmdargs += " 2> " + stderrfilename;
             _startExecutable("cmd.exe", cmdargs, true, workingDir);
 
             return new executionResult()
