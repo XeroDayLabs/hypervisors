@@ -115,16 +115,15 @@ namespace hypervisors
         {
             lock (VMWareLock)
             {
-                if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOn ||
-                    _underlyingVM.Runtime.PowerState == VirtualMachinePowerState.suspended)
-                    powerOff();
-
                 // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
                 // particularly under load, hence the retries.
                 doWithRetryOnSomeExceptions(() =>
                 {
                     lock (VMWareLock)
                     {
+                        _underlyingVM.UpdateViewData();
+                        if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOn)
+                            return null;
                         _underlyingVM.PowerOnVM(_underlyingVM.Runtime.Host);
                     }
                     return null;
@@ -146,17 +145,15 @@ namespace hypervisors
 
         public override void powerOff()
         {
-            lock (VMWareLock)
-            {
-                if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
-                    return;
-            }
             // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
             // particularly under load, hence the retries.
             doWithRetryOnSomeExceptions(() =>
             {
                 lock (VMWareLock)
                 {
+                    _underlyingVM.UpdateViewData();
+                    if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
+                        return null;
                     _underlyingVM.PowerOffVM();
                 }
                 return null;
