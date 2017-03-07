@@ -148,8 +148,8 @@ namespace hypervisors
         {
             lock (VMWareLock)
             {
-                if (_underlyingVM.Runtime.PowerState != VirtualMachinePowerState.poweredOff)
-                    powerOn();
+                if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
+                    return;
             }
             // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
             // particularly under load, hence the retries.
