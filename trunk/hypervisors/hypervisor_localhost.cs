@@ -35,12 +35,12 @@ namespace hypervisors
 
         public override void powerOn()
         {
-            throw new NotImplementedException();
+
         }
 
         public override void powerOff()
         {
-            throw new NotImplementedException();
+
         }
 
         public override void copyToGuest(string srcpath, string dstpath, bool ignoreExisting)

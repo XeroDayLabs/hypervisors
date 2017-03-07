@@ -117,9 +117,19 @@ namespace hypervisors
             {
                 if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOn ||
                     _underlyingVM.Runtime.PowerState == VirtualMachinePowerState.suspended)
-                    _underlyingVM.PowerOffVM();
+                    powerOff();
 
-                _underlyingVM.PowerOnVM(_underlyingVM.Runtime.Host);
+                // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
+                // particularly under load, hence the retries.
+                doWithRetryOnSomeExceptions(() =>
+                {
+                    lock (VMWareLock)
+                    {
+                        _underlyingVM.PowerOnVM(_underlyingVM.Runtime.Host);
+                    }
+                    return null;
+                }, TimeSpan.FromSeconds(1), 10);
+
             }
 
             while (true)
@@ -138,11 +148,10 @@ namespace hypervisors
         {
             lock (VMWareLock)
             {
-                if (_underlyingVM.Runtime.PowerState != VirtualMachinePowerState.poweredOn &&
-                    _underlyingVM.Runtime.PowerState != VirtualMachinePowerState.suspended)
-                    return;
+                if (_underlyingVM.Runtime.PowerState != VirtualMachinePowerState.poweredOff)
+                    powerOn();
             }
-            // Sometimes I am seeing 'the attepnted operation cannot be performed in the current state (Powered on)' here,
+            // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
             // particularly under load, hence the retries.
             doWithRetryOnSomeExceptions(() =>
             {
