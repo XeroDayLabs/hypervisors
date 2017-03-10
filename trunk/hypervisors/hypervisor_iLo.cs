@@ -29,7 +29,7 @@ namespace hypervisors
     public class hypervisor_iLo : hypervisorWithSpec<hypSpec_iLo>
     {
         private hypervisor_iLo_HTTP ilo;
-        private hypervisor_null _nullHyp;
+        private SMBExecutor _nullHyp;
 
         private hypSpec_iLo _spec;
 
@@ -37,7 +37,7 @@ namespace hypervisors
         {
             _spec = spec;
             ilo = new hypervisor_iLo_HTTP(spec.iLoHostname, spec.iLoUsername, spec.iLoPassword);
-            _nullHyp = new hypervisor_null(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
+            _nullHyp = new SMBExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
         }
 
         public override void restoreSnapshotByName(string ignored)

@@ -66,7 +66,7 @@
     <Compile Include="hypervisor_iLo.cs" />
     <Compile Include="hypervisor_iLo_HTTP.cs" />
     <Compile Include="hypervisor_localhost.cs" />
-    <Compile Include="hypervisor_null.cs" />
+    <Compile Include="SMBExecutor.cs" />
     <Compile Include="hypervisor_vmware.cs" />
     <Compile Include="hypSpec_iLo.cs" />
     <Compile Include="hypSpec_vmware.cs" />
@@ -74,6 +74,7 @@
     <Compile Include="Icmp.cs" />
     <Compile Include="NetworkConnection.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="vmwareRemoteExecutor.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

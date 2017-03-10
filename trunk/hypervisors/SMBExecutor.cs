@@ -8,18 +8,19 @@ using System.Threading;
 namespace hypervisors
 {
     /// <summary>
-    /// This class exposes a bare windows box. It uses SMB to copy files, spawn processes (by shelling out to psexec), and provides
-    /// no snapshotting capability.
+    /// This class exposes a bare windows box. It uses SMB to copy files, and can spawn processes (by shelling out to psexec).
     /// It assumes the root of C:\ is shared as "C" on the guest.
+    /// Also, ensure that you set the required registry key on the guest before using this, otherwise you will see "the handle is invalid"
+    /// errors - see the wiki.
     /// </summary>
-    public class hypervisor_null : hypervisor
+    public class SMBExecutor : IRemoteExecution
     {
         string _guestIP;
         string _username;
         string _password;
         private NetworkCredential _cred;
 
-        public hypervisor_null(string guestIP, string _guestUsername, string _guestPassword)
+        public SMBExecutor(string guestIP, string _guestUsername, string _guestPassword)
         {
             _guestIP = guestIP;
             _username = _guestUsername;
@@ -27,24 +28,7 @@ namespace hypervisors
             _cred = new NetworkCredential(_username, _password);
         }
 
-        public override void connect()
-        {
-        }
-
-        public override void powerOn()
-        {
-        }
-
-        public override void powerOff()
-        {
-        }
-
-        public override void restoreSnapshotByName(string snapshotNameOrID)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        public executionResult startExecutable(string toExecute, string args, string workingDir = null)
         {
             // Execute via cmd.exe so we can capture stdout.
             string stdoutfilename = string.Format("C:\\users\\{0}\\hyp_stdout_{1}.txt", _username, Guid.NewGuid().ToString());
@@ -65,8 +49,8 @@ namespace hypervisors
 
             return toRet;
         }
-
-        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
+        
+        public void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
         {
             // Execute via cmd.exe so we can capture stdout.
             string cmdargs = String.Format("/c  {0} {1} ", toExecute, args);
@@ -103,6 +87,8 @@ namespace hypervisors
                 string stdout = proc.StandardOutput.ReadToEnd();
                 string stderr = proc.StandardError.ReadToEnd();
 
+                Debug.WriteLine(stderr);
+
                 if (proc.ExitCode != 6)
                     return proc.ExitCode;
 
@@ -110,7 +96,7 @@ namespace hypervisors
             }
         }
 
-        public override void mkdir(string newDir)
+        public void mkdir(string newDir)
         {
             string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, newDir.Substring(2));
             int retries = 60;
@@ -140,7 +126,7 @@ namespace hypervisors
             }
         }
 
-        public override void copyToGuest(string srcpath, string dstpath, bool ignoreExisting = false)
+        public void copyToGuest(string srcpath, string dstpath, bool ignoreExisting = false)
         {   
             if (!dstpath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
@@ -181,7 +167,7 @@ namespace hypervisors
             }
         }
 
-        public override string getFileFromGuest(string srcpath)
+        public string getFileFromGuest(string srcpath)
         {
             if (!srcpath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
@@ -218,6 +204,10 @@ namespace hypervisors
 
                     // retry on other win32 exceptions
                 }
+                catch (Exception)
+                {
+                    throw new hypervisorExecutionException();
+                }
 //                catch (FileNotFoundException)
 //                {
 //                    return null;
@@ -230,6 +220,15 @@ namespace hypervisors
                 Thread.Sleep(TimeSpan.FromSeconds(5));
             }
         }
+    }
+
+    public interface IRemoteExecution
+    {
+        void mkdir(string newDir);
+        void copyToGuest(string srcpath, string dstpath, bool ignoreExisting);
+        string getFileFromGuest(string srcpath);
+        executionResult startExecutable(string toExecute, string args, string workingDir = null);
+        void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null);
     }
 
     [Serializable]

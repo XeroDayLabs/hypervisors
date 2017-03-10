@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using VMware.Vim;
@@ -21,19 +19,41 @@ namespace hypervisors
         private VimClientImpl VClient;
         private VirtualMachine _underlyingVM;
 
-        public hypervisor_vmware(hypSpec_vmware spec)
+        /// <summary>
+        /// This can be used to select if executions will be performed via VMWare tools, or via psexec. Make sure that you take
+        /// the neccessary steps for configuring SMB on the client machine, if you're going to use it.
+        /// </summary>
+        private clientExecutionMethod _executionMethod;
+        /// 
+        private IRemoteExecution executor;
+
+        public hypervisor_vmware(hypSpec_vmware spec, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
         {
             _spec = spec;
+
             lock (VMWareLock)
             {
                 VClient = new VimClientImpl();
-                VClient.Connect("https://" + spec.kernelVMServer + "/sdk");
-                VClient.Login(spec.kernelVMServerUsername, spec.kernelVMServerPassword);
+                VClient.Connect("https://" + _spec.kernelVMServer + "/sdk");
+                VClient.Login(_spec.kernelVMServerUsername, _spec.kernelVMServerPassword);
 
                 List<EntityViewBase> vmlist = VClient.FindEntityViews(typeof (VirtualMachine), null, null, null);
-                _underlyingVM = (VirtualMachine) vmlist.SingleOrDefault(x => ((VirtualMachine) x).Config.Name.ToLower() == spec.kernelVMName.ToLower());
+                _underlyingVM = (VirtualMachine) vmlist.SingleOrDefault(x => ((VirtualMachine) x).Config.Name.ToLower() == _spec.kernelVMName.ToLower());
                 if (_underlyingVM == null)
-                    throw new Exception("Can't find VM named '" + spec.kernelVMName + "'");
+                    throw new Exception("Can't find VM named '" + _spec.kernelVMName + "'");
+            }
+
+            _executionMethod = newExecMethod;
+            switch (newExecMethod)
+            {
+                case clientExecutionMethod.vmwaretools:
+                    executor = new vmwareRemoteExecutor(spec, VClient, _underlyingVM);
+                    break;
+                case clientExecutionMethod.smb:
+                    executor = new SMBExecutor(spec.kernelDebugIPOrHostname, spec.kernelVMUsername, spec.kernelVMPassword);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException("newExecMethod", newExecMethod, null);
             }
         }
 
@@ -41,6 +61,8 @@ namespace hypervisors
         {
             lock (VMWareLock)
             {
+                _underlyingVM.UpdateViewData();
+
                 // Find its named snapshot
                 VirtualMachineSnapshotTree snapshot = findRecusively(_underlyingVM.Snapshot.RootSnapshotList, snapshotNameOrID);
 
@@ -48,19 +70,6 @@ namespace hypervisors
                 VirtualMachineSnapshot shot = new VirtualMachineSnapshot(VClient, snapshot.Snapshot);
                 shot.RevertToSnapshot(_underlyingVM.MoRef, false);
             }
-            // Wait for it to be ready
-//            while (_underlyingVM.Guest.ToolsRunningStatus != VirtualMachineToolsRunningStatus.guestToolsRunning.ToString())
-//                Thread.Sleep(100);
-
-            // No, really, wait for it to be ready
-            doWithRetryOnSomeExceptions(() =>
-            {
-                lock (VMWareLock)
-                {
-                    _startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi", true);
-                }
-                return "";
-            });
         }
 
         private VirtualMachineSnapshotTree findRecusively(VirtualMachineSnapshotTree[] parent, string snapshotNameOrID)
@@ -87,7 +96,7 @@ namespace hypervisors
                 {
                     return thingtoDo.Invoke();
                 }
-                catch (VimException)
+                catch (VimException e)
                 {
                     if (maxRetries != 0)
                     {
@@ -96,6 +105,14 @@ namespace hypervisors
                     }
                 }
                 catch (System.Net.WebException)
+                {
+                    if (maxRetries != 0)
+                    {
+                        if (retries-- == 0)
+                            throw;
+                    }
+                }
+                catch (hypervisorExecutionException)
                 {
                     if (maxRetries != 0)
                     {
@@ -122,25 +139,40 @@ namespace hypervisors
                     lock (VMWareLock)
                     {
                         _underlyingVM.UpdateViewData();
+                        Debug.WriteLine(_underlyingVM.Runtime.PowerState);
                         if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOn)
                             return null;
                         _underlyingVM.PowerOnVM(_underlyingVM.Runtime.Host);
                     }
                     return null;
-                }, TimeSpan.FromSeconds(1), 10);
-
+                }, TimeSpan.FromSeconds(3), 100);
             }
 
-            while (true)
+            // Wait for it to be ready
+            if (_executionMethod == clientExecutionMethod.vmwaretools)
+            {
+                while (true)
+                {
+                    lock (VMWareLock)
+                    {
+                        _underlyingVM.UpdateViewData();
+                        if (_underlyingVM.Guest.ToolsRunningStatus == VirtualMachineToolsRunningStatus.guestToolsRunning.ToString())
+                            break;
+                    }
+
+                    Thread.Sleep(TimeSpan.FromSeconds(3));
+                }
+            }
+
+            // No, really, wait for it to be ready
+            doWithRetryOnSomeExceptions(() =>
             {
                 lock (VMWareLock)
                 {
-                    if (_underlyingVM.Guest.ToolsRunningStatus == VirtualMachineToolsRunningStatus.guestToolsRunning.ToString())
-                        break;
+                    startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
                 }
-
-                Thread.Sleep(100);
-            }
+                return "";
+            }, TimeSpan.FromSeconds(5), 100);
         }
 
         public override void powerOff()
@@ -157,9 +189,9 @@ namespace hypervisors
                     _underlyingVM.PowerOffVM();
                 }
                 return null;
-            }, TimeSpan.FromSeconds(1), 10  );
+            }, TimeSpan.FromSeconds(1), 10);
         }
-        
+
         public override void copyToGuest(string srcpath, string dstpath, bool ignoreExising)
         {
             doWithRetryOnSomeExceptions(() =>
@@ -174,36 +206,7 @@ namespace hypervisors
 
         private void _copyToGuest(string srcpath, string dstpath, bool ignoreExisting)
         {
-            NamePasswordAuthentication Auth = new NamePasswordAuthentication
-            {
-                Username = _spec.kernelVMUsername,
-                Password = _spec.kernelVMPassword,
-                InteractiveSession = true
-            };
-
-            GuestOperationsManager gom = (GuestOperationsManager)VClient.GetView(VClient.ServiceContent.GuestOperationsManager, null);
-            GuestAuthManager guestAuthManager = VClient.GetView(gom.AuthManager, null) as GuestAuthManager;
-            guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
-            GuestFileManager GFM = VClient.GetView(gom.FileManager, null) as GuestFileManager;
-
-            System.IO.FileInfo FileToTransfer = new System.IO.FileInfo(srcpath);
-            GuestFileAttributes GFA = new GuestFileAttributes()
-            {
-                AccessTime = FileToTransfer.LastAccessTimeUtc,
-                ModificationTime = FileToTransfer.LastWriteTimeUtc
-            };
-
-            dstpath += Path.GetFileName(srcpath);
-            
-            string transferOutput = GFM.InitiateFileTransferToGuest(_underlyingVM.MoRef, Auth, dstpath, GFA, FileToTransfer.Length, true);
-            string nodeIpAddress = VClient.ServiceUrl.ToString();
-            nodeIpAddress = nodeIpAddress.Remove(nodeIpAddress.LastIndexOf('/'));
-            transferOutput = transferOutput.Replace("https://*", nodeIpAddress);
-            Uri oUri = new Uri(transferOutput);
-            using (WebClient webClient = new WebClient())
-            {
-                webClient.UploadFile(oUri, "PUT", srcpath);
-            }
+            executor.copyToGuest(srcpath, dstpath, ignoreExisting);
         }
 
         public override string getFileFromGuest(string srcpath)
@@ -212,156 +215,42 @@ namespace hypervisors
             {
                 lock (VMWareLock)
                 {
-                    return _getFileFromGuest(srcpath);
+                    return executor.getFileFromGuest(srcpath);
                 }
             }, TimeSpan.FromMilliseconds(100), 100);
         }
 
-        private string _getFileFromGuest(string srcpath)
+        public override executionResult startExecutable(string toExecute, string args, string workingdir = null)
         {
-            NamePasswordAuthentication Auth = new NamePasswordAuthentication
-            {
-                Username = _spec.kernelVMUsername,
-                Password = _spec.kernelVMPassword,
-                InteractiveSession = true
-            };
-
-            GuestOperationsManager gom = (GuestOperationsManager)VClient.GetView(VClient.ServiceContent.GuestOperationsManager, null);
-            GuestAuthManager guestAuthManager = VClient.GetView(gom.AuthManager, null) as GuestAuthManager;
-            guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
-            GuestFileManager GFM = VClient.GetView(gom.FileManager, null) as GuestFileManager;
-
-            FileTransferInformation transferOutput = GFM.InitiateFileTransferFromGuest(_underlyingVM.MoRef, Auth, srcpath);
-            string nodeIpAddress = VClient.ServiceUrl.ToString();
-            nodeIpAddress = nodeIpAddress.Remove(nodeIpAddress.LastIndexOf('/'));
-            string url = transferOutput.Url.Replace("https://*", nodeIpAddress);
-            using (WebClient webClient = new WebClient())
-            {
-                return webClient.DownloadString(url);
-            }
+            return executor.startExecutable(toExecute, args, workingdir);
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string returnCodeFilename = null)
         {
-            // Execute via cmd.exe so we can capture stdout.
-            string stdoutfilename = string.Format("C:\\windows\\temp\\hyp_stdout.txt");
-            string stderrfilename = string.Format("C:\\windows\\temp\\hyp_stderr.txt");
-
-            string cmdargs = String.Format("/c {0} {1} ", toExecute, args);
-            cmdargs += " 1> " + stdoutfilename;
-            cmdargs += " 2> " + stderrfilename;
-            _startExecutable("cmd.exe", cmdargs, true, workingDir);
-
-            return new executionResult()
-            {
-                stderr = getFileFromGuest(stderrfilename),
-                stdout = getFileFromGuest(stdoutfilename)
-            };
+            executor.startExecutableAsync(toExecute, args, workingDir, stdoutfilename, stderrfilename, returnCodeFilename);
         }
-
-        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
-        {
-            // Execute via cmd.exe so we can capture stdout.
-            string cmdargs = String.Format("/c {0} {1} ", toExecute, args);
-            if (stdoutfilename != null)
-                cmdargs += "1> " + stdoutfilename;
-            if (stderrfilename != null)
-                cmdargs += "2> " + stderrfilename;
-            if (retCodeFilename != null)
-                cmdargs += " & echo %ERRORLEVEL% > " + retCodeFilename;
-
-            _startExecutable("cmd.exe", cmdargs, false, workingDir);
-        }
-
-        private void _startExecutable(string toExecute, string args, bool waitForExit, string workingDir = null)
-        {
-            if (workingDir == null)
-                workingDir = "C:\\";
-
-            long guestPID;
-            GuestProcessManager guestProcessManager;
-            NamePasswordAuthentication Auth;
-            lock (VMWareLock)
-            {
-                Auth = new NamePasswordAuthentication
-                {
-                    Username = _spec.kernelVMUsername,
-                    Password = _spec.kernelVMPassword,
-                    InteractiveSession = true
-                };
-                GuestOperationsManager gom = (GuestOperationsManager) VClient.GetView(VClient.ServiceContent.GuestOperationsManager, null);
-                GuestAuthManager guestAuthManager = (GuestAuthManager) VClient.GetView(gom.AuthManager, null);
-                guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
-                guestProcessManager = VClient.GetView(gom.ProcessManager, null) as GuestProcessManager;
-                GuestProgramSpec progSpec = new GuestProgramSpec
-                {
-                    ProgramPath = toExecute, Arguments = args
-                };
-                guestPID = guestProcessManager.StartProgramInGuest(_underlyingVM.MoRef, Auth, progSpec);
-
-                if (!waitForExit)
-                    return;
-            }
-
-            // Poll until specified pid exits. ( :/ )
-            Stopwatch timeoutWatch = new Stopwatch();
-            timeoutWatch.Start();
-            long[] pids = new[] { guestPID };
-            while (true)
-            {
-                try
-                {
-                    GuestProcessInfo[] info;
-                    lock (VMWareLock)
-                    {
-                        info = guestProcessManager.ListProcessesInGuest(_underlyingVM.MoRef, Auth, pids);
-                    }
-                    if (info[0].EndTime != null)
-                        break;
-                }
-                catch (VimException)
-                {
-                    Thread.Sleep(1000);
-                }
-                if (timeoutWatch.ElapsedMilliseconds > 60 * 1000)
-                    break;
-            }
-        }
-
+        
         public override void mkdir(string newDir)
         {
             doWithRetryOnSomeExceptions(() =>
             {
                 lock (VMWareLock)
                 {
-                    _mkdir(newDir);
+                    executor.mkdir(newDir);
                 }
                 return null;
             }, TimeSpan.FromMilliseconds(100), 100);
-        }
-        
-        private void _mkdir(string newDir)
-        {
-            
-            NamePasswordAuthentication Auth = new NamePasswordAuthentication
-            {
-                Username = _spec.kernelVMUsername,
-                Password = _spec.kernelVMPassword,
-                InteractiveSession = true
-            };
-
-            GuestOperationsManager gom = (GuestOperationsManager)VClient.GetView(VClient.ServiceContent.GuestOperationsManager, null);
-            GuestAuthManager guestAuthManager = VClient.GetView(gom.AuthManager, null) as GuestAuthManager;
-            guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
-            GuestFileManager GFM = VClient.GetView(gom.FileManager, null) as GuestFileManager;
-
-            GFM.MakeDirectoryInGuest(_underlyingVM.MoRef, Auth, newDir, true);            
         }
 
         public override hypSpec_vmware getConnectionSpec()
         {
             return _spec;
         }
+    }
 
+    public enum clientExecutionMethod
+    {
+        vmwaretools,
+        smb
     }
 }
