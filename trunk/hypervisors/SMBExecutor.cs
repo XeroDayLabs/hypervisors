@@ -78,24 +78,23 @@ namespace hypervisors
             info.UseShellExecute = false;
             info.WindowStyle = ProcessWindowStyle.Normal;
 
-            while (true)
-            {
-                Debug.WriteLine(string.Format("starting: {0} {1}", toExecute, cmdArgs));
-                Process proc = Process.Start(info);
+            Debug.WriteLine(string.Format("starting: {0} {1}", toExecute, cmdArgs));
+            Process proc = Process.Start(info);
 
-                proc.WaitForExit();
+            proc.WaitForExit();
 
-                string stdout = proc.StandardOutput.ReadToEnd();
-                string stderr = proc.StandardError.ReadToEnd();
+            string stdout = proc.StandardOutput.ReadToEnd();
+            string stderr = proc.StandardError.ReadToEnd();
 
-                Debug.WriteLine(stdout);
-                Debug.WriteLine(stderr);
+            Debug.WriteLine(stdout);
+            Debug.WriteLine(stderr);
 
-                if (proc.ExitCode != 6)
-                    return proc.ExitCode;
+            Debug.WriteLine("psexec returned " + proc.ExitCode);
 
-                Thread.Sleep(TimeSpan.FromSeconds(5));
-            }
+            if (proc.ExitCode == 6)
+                throw new hypervisorExecutionException_retryable();
+             
+            return proc.ExitCode;
         }
 
         public void mkdir(string newDir)
@@ -234,7 +233,8 @@ namespace hypervisors
     }
 
     [Serializable]
-    public class hypervisorExecutionException : Exception
-    {
-    }
+    public class hypervisorExecutionException : Exception { }
+
+    [Serializable]
+    public class hypervisorExecutionException_retryable : Exception { }
 }

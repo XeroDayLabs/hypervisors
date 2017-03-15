@@ -120,6 +120,14 @@ namespace hypervisors
                             throw;
                     }
                 }
+                catch (hypervisorExecutionException_retryable)
+                {
+                    if (maxRetries != 0)
+                    {
+                        if (retries-- == 0)
+                            throw;
+                    }
+                }
                 Thread.Sleep(retry);
             }
         }
