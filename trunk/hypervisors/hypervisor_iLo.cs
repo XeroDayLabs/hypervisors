@@ -281,7 +281,7 @@ namespace hypervisors
 
         public override string ToString()
         {
-            return _spec.iLoHostname;
+            return string.Format("{0}:{1}", _spec.kernelDebugIPOrHostname, _spec.kernelDebugPort);
         }
 
         public void checkSnapshotSanity()

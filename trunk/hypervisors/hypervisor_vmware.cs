@@ -179,17 +179,23 @@ namespace hypervisors
         {
             // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
             // particularly under load, hence the retries.
-            doWithRetryOnSomeExceptions(() =>
+            _underlyingVM.UpdateViewData();
+            Debug.WriteLine("poweroff: old state " + _underlyingVM.Runtime.PowerState);
+            while (_underlyingVM.Runtime.PowerState != VirtualMachinePowerState.poweredOff)
             {
-                lock (VMWareLock)
+                doWithRetryOnSomeExceptions(() =>
                 {
-                    _underlyingVM.UpdateViewData();
-                    if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
-                        return null;
-                    _underlyingVM.PowerOffVM();
-                }
-                return null;
-            }, TimeSpan.FromSeconds(1), 10);
+                    lock (VMWareLock)
+                    {
+                        _underlyingVM.UpdateViewData();
+                        Debug.WriteLine("poweroff: old state " + _underlyingVM.Runtime.PowerState);
+                        if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
+                            return null;
+                        _underlyingVM.PowerOffVM();
+                    }
+                    return null;
+                }, TimeSpan.FromSeconds(1), 10);
+            }
         }
 
         public override void copyToGuest(string srcpath, string dstpath, bool ignoreExising)
@@ -245,6 +251,11 @@ namespace hypervisors
         public override hypSpec_vmware getConnectionSpec()
         {
             return _spec;
+        }
+
+        public override string ToString()
+        {
+            return string.Format("{0}:{1}", _spec.kernelDebugIPOrHostname, _spec.kernelDebugPort);
         }
     }
 
