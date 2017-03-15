@@ -80,6 +80,7 @@ namespace hypervisors
 
             while (true)
             {
+                Debug.WriteLine(string.Format("starting: {0} {1}", toExecute, cmdArgs));
                 Process proc = Process.Start(info);
 
                 proc.WaitForExit();
@@ -87,6 +88,7 @@ namespace hypervisors
                 string stdout = proc.StandardOutput.ReadToEnd();
                 string stderr = proc.StandardError.ReadToEnd();
 
+                Debug.WriteLine(stdout);
                 Debug.WriteLine(stderr);
 
                 if (proc.ExitCode != 6)
