@@ -70,8 +70,8 @@ namespace hypervisors
             if (workingDir == null)
                 workingDir = "C:\\";
 
-            string args = string.Format("\\\\{0} {6} -u {1} -p {2} -w {5} -h {3} {4}"
-                , _guestIP, _username, _password, toExecute, cmdArgs, workingDir, detach ? " -d " : "");
+            string args = string.Format("\\\\{0} {6} -u {1} -p {2} -w {5} -h {3} {4}", 
+                _guestIP, _username, _password, toExecute, cmdArgs, workingDir, detach ? " -d " : "");
             ProcessStartInfo info = new ProcessStartInfo("psexec.exe", args);
             info.RedirectStandardError = true;
             info.RedirectStandardOutput = true;
@@ -81,7 +81,25 @@ namespace hypervisors
             Debug.WriteLine(string.Format("starting: {0} {1}", toExecute, cmdArgs));
             Process proc = Process.Start(info);
 
-            proc.WaitForExit();
+            if (detach)
+            {
+                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
+                {
+                    try
+                    {
+                        proc.Kill();
+                    }
+                    catch (Exception)
+                    {
+                    }
+
+                    throw new TimeoutException();
+                }
+            }
+            else
+            {
+                proc.WaitForExit();
+            }
 
             string stdout = proc.StandardOutput.ReadToEnd();
             string stderr = proc.StandardError.ReadToEnd();
