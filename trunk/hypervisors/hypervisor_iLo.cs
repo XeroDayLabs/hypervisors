@@ -45,41 +45,43 @@ namespace hypervisors
             string fullName = _spec.snapshotName;
             FreeNAS nas = new FreeNAS(_spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
 
+            // Find the device snapshot, so we can get information about it needed to get the ISCSI volume
             snapshotObjects shotObjects = getSnapshotObjectsFromNAS(nas, fullName);
 
             // Here we power the server down, tell the iSCSI server to use the right image, and power it back up again.
             powerOff();
 
-            // Find the device snapshot, so we can get information about it needed to get the ISCSI volume
-
             // Now we can get started. We must remove the 'target to extent' mapping, then the target. Then we can safely roll back
-            // the ZFS snapshot, and then re-add the target and mapping.
+            // the ZFS snapshot, and then re-add the target and mapping. We use a finally block so that it is less likely we will
+            // leave the NAS object in an inconsistent state.
             // TODO: can we just tell freeNAS to delete this stuff instead?
             nas.deleteISCSITargetToExtent(shotObjects.tgtToExtent);
             nas.deleteISCSIExtent(shotObjects.extent);
-
-            // Roll back the snapshot. Use a retry, since FreeNAS is complaining the dataset is in use occasionally.
-            int retries = 100;
-            while (true)
+            try
             {
-                try
+                // Roll back the snapshot. Use a retry, since FreeNAS is complaining the dataset is in use occasionally.
+                int retries = 100;
+                while (true)
                 {
-                    nas.rollbackSnapshot(shotObjects.shotToRestore);
-                    break;
-                }
-                catch (Exception)
-                {
-                    if (retries-- == 0)
-                        throw;
-                    Thread.Sleep(TimeSpan.FromSeconds(6));  // 6 sec * 100 retries = ten minutes
+                    try
+                    {
+                        nas.rollbackSnapshot(shotObjects.shotToRestore);
+                        break;
+                    }
+                    catch (Exception)
+                    {
+                        if (retries-- == 0)
+                            throw;
+                        Thread.Sleep(TimeSpan.FromSeconds(6)); // 6 sec * 100 retries = ten minutes
+                    }
                 }
             }
-
-            // Re-add the extent and target-to-extent mapping.
-            iscsiExtent newExtent = nas.addISCSIExtent(shotObjects.extent);
-            nas.addISCSITargetToExtent(shotObjects.tgtToExtent.iscsi_target, newExtent);
-
-//            powerOn();
+            finally
+            {
+                // Re-add the extent and target-to-extent mapping.
+                iscsiExtent newExtent = nas.addISCSIExtent(shotObjects.extent);
+                nas.addISCSITargetToExtent(shotObjects.tgtToExtent.iscsi_target, newExtent);
+            }
         }
 
         private snapshotObjects getSnapshotObjectsFromNAS(FreeNAS nas, string fullName)
