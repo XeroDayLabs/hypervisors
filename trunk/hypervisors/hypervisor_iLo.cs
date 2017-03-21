@@ -28,16 +28,16 @@ namespace hypervisors
 
     public class hypervisor_iLo : hypervisorWithSpec<hypSpec_iLo>
     {
-        private hypervisor_iLo_HTTP ilo;
-        private SMBExecutor _nullHyp;
+        private hypervisor_iLo_HTTP _ilo;
+        private SMBExecutor _executor;
 
         private hypSpec_iLo _spec;
 
         public hypervisor_iLo(hypSpec_iLo spec)
         {
             _spec = spec;
-            ilo = new hypervisor_iLo_HTTP(spec.iLoHostname, spec.iLoUsername, spec.iLoPassword);
-            _nullHyp = new SMBExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
+            _ilo = new hypervisor_iLo_HTTP(spec.iLoHostname, spec.iLoUsername, spec.iLoPassword);
+            _executor = new SMBExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
         }
 
         public override void restoreSnapshotByName(string ignored)
@@ -114,22 +114,22 @@ namespace hypervisors
 
         public override void connect()
         {
-            ilo.connect();
+            _ilo.connect();
         }
 
         public override void powerOn()
         {
-            ilo.powerOn();
+            _ilo.powerOn();
 
             // Wait until the host is up enough that we can ping it...
             WaitForStatus(true, TimeSpan.FromMinutes(6));
 
-            if (_nullHyp != null)
+            if (_executor != null)
             {
                 // Now wait for it to be up enough that we can psexec to it.
                 doWithRetryOnSomeExceptions(() =>
                 {
-                    _nullHyp.startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
+                    _executor.startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
                 });
             }
         }
@@ -234,8 +234,8 @@ namespace hypervisors
         {
             DateTime deadline = DateTime.Now + TimeSpan.FromSeconds(20);
 
-            ilo.powerOff();
-            while (ilo.getPowerStatus())
+            _ilo.powerOff();
+            while (_ilo.getPowerStatus())
             {
                 Thread.Sleep(TimeSpan.FromMilliseconds(500));
                 if (deadline < DateTime.Now)
@@ -246,35 +246,35 @@ namespace hypervisors
 
         private bool getPowerStatus()
         {
-            return ilo.getPowerStatus();
+            return _ilo.getPowerStatus();
         }
 
         public override string getFileFromGuest(string srcpath)
         {
-            if (_nullHyp == null)
+            if (_executor == null)
                 throw new NotSupportedException();
-            return _nullHyp.getFileFromGuest(srcpath);
+            return _executor.getFileFromGuest(srcpath);
         }
 
         public override executionResult startExecutable(string toExecute, string args, string workingdir = null)
         {
-            if (_nullHyp == null)
+            if (_executor == null)
                 throw new NotSupportedException();
-            return _nullHyp.startExecutable(toExecute, args, workingdir);
+            return _executor.startExecutable(toExecute, args, workingdir);
         }
 
         public override void startExecutableAsync(string toExecute, string args, string workingdir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
         {
-            if (_nullHyp == null)
+            if (_executor == null)
                 throw new NotSupportedException();
-            _nullHyp.startExecutableAsync(toExecute, args, workingdir, stdoutfilename, stderrfilename, retCodeFilename);
+            _executor.startExecutableAsync(toExecute, args, workingdir, stdoutfilename, stderrfilename, retCodeFilename);
         }
 
         public override void mkdir(string newDir)
         {
-            if (_nullHyp == null)
+            if (_executor == null)
                 throw new NotSupportedException();
-            _nullHyp.mkdir(newDir);
+            _executor.mkdir(newDir);
         }
 
         public override hypSpec_iLo getConnectionSpec()
@@ -284,9 +284,9 @@ namespace hypervisors
 
         public override void copyToGuest(string srcpath, string dstpath, bool ignoreExisting = false)
         {
-            if (_nullHyp == null)
+            if (_executor == null)
                 throw new NotSupportedException();
-            _nullHyp.copyToGuest(srcpath, dstpath, ignoreExisting);
+            _executor.copyToGuest(srcpath, dstpath, ignoreExisting);
         }
 
         public override string ToString()
@@ -302,7 +302,7 @@ namespace hypervisors
 
         protected override void _Dispose()
         {
-            ilo.logout();
+            _ilo.logout();
 
             base._Dispose();
         }

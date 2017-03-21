@@ -20,6 +20,12 @@ namespace hypervisors
         string _password;
         private NetworkCredential _cred;
 
+        /// <summary>
+        /// This will pass '-i' to psexec, causing the target process to be executed on the currently-logged-in user's desktop.
+        /// This won't work if there is no user logged in.
+        /// </summary>
+        public bool runInteractively = true;
+
         public SMBExecutor(string guestIP, string _guestUsername, string _guestPassword)
         {
             _guestIP = guestIP;
@@ -70,15 +76,15 @@ namespace hypervisors
             if (workingDir == null)
                 workingDir = "C:\\";
 
-            string args = string.Format("\\\\{0} {6} -u {1} -p {2} -w {5} -h {3} {4}", 
-                _guestIP, _username, _password, toExecute, cmdArgs, workingDir, detach ? " -d " : "");
+            string args = string.Format("\\\\{0} {6} {7} -u {1} -p {2} -w {5} -h {3} {4}", 
+                _guestIP, _username, _password, toExecute, cmdArgs, workingDir, detach ? " -d " : "", runInteractively ? " -i " : "");
             ProcessStartInfo info = new ProcessStartInfo("psexec.exe", args);
             info.RedirectStandardError = true;
             info.RedirectStandardOutput = true;
             info.UseShellExecute = false;
-            info.WindowStyle = ProcessWindowStyle.Normal;
+            info.WindowStyle = ProcessWindowStyle.Hidden;
 
-            Debug.WriteLine(string.Format("starting: {0} {1}", toExecute, cmdArgs));
+            Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
             Process proc = Process.Start(info);
 
             if (detach)
@@ -227,15 +233,7 @@ namespace hypervisors
                 {
                     throw new hypervisorExecutionException();
                 }
-//                catch (FileNotFoundException)
-//                {
-//                    return null;
-//                }
-//                catch (IOException)
-//                {
-//                    if (DateTime.Now > deadline)
-//                        throw;
-//                }
+
                 Thread.Sleep(TimeSpan.FromSeconds(5));
             }
         }
