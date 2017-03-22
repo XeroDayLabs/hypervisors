@@ -59,13 +59,13 @@ namespace hypervisors
         public void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
         {
             // Execute via cmd.exe so we can capture stdout.
-            string cmdargs = String.Format("/c  {0} {1} ", toExecute, args);
+            string cmdargs = String.Format("/c {0} {1} ", toExecute, args);
             if (stdoutfilename != null)
                 cmdargs += " 1> " + stdoutfilename;
             if (stderrfilename != null)
                 cmdargs += " 2> " + stderrfilename;
             if (retCodeFilename != null)
-                cmdargs += " & echo %errorlevel% > " + retCodeFilename;
+                cmdargs += " & echo %errorlevel% > " + retCodeFilename;     // FIXME: does this errorlevel need escaping?!
 
             executionResult toRet = new executionResult();
             toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, true);
@@ -79,9 +79,9 @@ namespace hypervisors
             string tempFile = Path.GetTempFileName() + ".bat";
             try
             {
-                File.WriteAllText(tempFile, cmdArgs);
+                File.WriteAllText(tempFile, toExecute + " " + cmdArgs);
 
-                string psExecArgs = string.Format("\\\\{0} {6} {7} -c -u {1} -p {2} -w {5} -h \"{3}\" \"{4}\"",
+                string psExecArgs = string.Format("\\\\{0} {6} {7} -c -u {1} -p {2} -w {5} -h \"{4}\"",
                     _guestIP, _username, _password, toExecute, tempFile, workingDir, detach ? " -d " : "", runInteractively ? " -i " : "");
                 ProcessStartInfo info = new ProcessStartInfo("psexec.exe", psExecArgs);
                 info.RedirectStandardError = true;
