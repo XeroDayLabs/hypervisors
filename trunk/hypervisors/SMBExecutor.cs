@@ -76,49 +76,81 @@ namespace hypervisors
             if (workingDir == null)
                 workingDir = "C:\\";
 
-            string args = string.Format("\\\\{0} {6} {7} -u {1} -p {2} -w {5} -h {3} {4}", 
-                _guestIP, _username, _password, toExecute, cmdArgs, workingDir, detach ? " -d " : "", runInteractively ? " -i " : "");
-            ProcessStartInfo info = new ProcessStartInfo("psexec.exe", args);
-            info.RedirectStandardError = true;
-            info.RedirectStandardOutput = true;
-            info.UseShellExecute = false;
-            info.WindowStyle = ProcessWindowStyle.Hidden;
-
-            Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
-            Process proc = Process.Start(info);
-
-            if (detach)
+            string tempFile = Path.GetTempFileName() + ".bat";
+            try
             {
-                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
+                File.WriteAllText(tempFile, cmdArgs);
+
+                string psExecArgs = string.Format("\\\\{0} {6} {7} -c -u {1} -p {2} -w {5} -h \"{3}\" \"{4}\"",
+                    _guestIP, _username, _password, toExecute, tempFile, workingDir, detach ? " -d " : "", runInteractively ? " -i " : "");
+                ProcessStartInfo info = new ProcessStartInfo("psexec.exe", psExecArgs);
+                info.RedirectStandardError = true;
+                info.RedirectStandardOutput = true;
+                info.UseShellExecute = false;
+                info.WindowStyle = ProcessWindowStyle.Hidden;
+
+                Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
+                Process proc = Process.Start(info);
+
+                if (detach)
+                {
+                    if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
+                    {
+                        try
+                        {
+                            proc.Kill();
+                        }
+                        catch (Exception)
+                        {
+                        }
+
+                        throw new TimeoutException();
+                    }
+                }
+                else
+                {
+                    proc.WaitForExit();
+                }
+
+                string stdout = proc.StandardOutput.ReadToEnd();
+                string stderr = proc.StandardError.ReadToEnd();
+
+                Debug.WriteLine(stdout);
+                Debug.WriteLine(stderr);
+
+                if (detach)
+                {
+                    Debug.WriteLine("Child PID is " + proc.ExitCode);
+                    return 0;
+                }
+
+                Debug.WriteLine("psexec returned " + proc.ExitCode);
+                if (proc.ExitCode == 6 || proc.ExitCode == 2250)
+                    throw new hypervisorExecutionException_retryable();
+                return proc.ExitCode;
+            }
+            finally
+            {
+                DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+                while (true)
                 {
                     try
                     {
-                        proc.Kill();
+                        File.Delete(tempFile);
+                        break;
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        break;
                     }
                     catch (Exception)
                     {
+                        if (deadline < DateTime.Now)
+                            throw;
+                        Thread.Sleep(TimeSpan.FromSeconds(2));
                     }
-
-                    throw new TimeoutException();
                 }
             }
-            else
-            {
-                proc.WaitForExit();
-            }
-
-            string stdout = proc.StandardOutput.ReadToEnd();
-            string stderr = proc.StandardError.ReadToEnd();
-
-            Debug.WriteLine(stdout);
-            Debug.WriteLine(stderr);
-
-            Debug.WriteLine("psexec returned " + proc.ExitCode);
-
-            if (proc.ExitCode == 6)
-                throw new hypervisorExecutionException_retryable();
-             
-            return proc.ExitCode;
         }
 
         public void mkdir(string newDir)

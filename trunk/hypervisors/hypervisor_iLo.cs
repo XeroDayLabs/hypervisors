@@ -172,7 +172,7 @@ namespace hypervisors
             Debug.Print(".. wait complete for box " + _spec.iLoHostname);
         }
 
-        private static void doWithRetryOnSomeExceptions(Action thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
+        public static void doWithRetryOnSomeExceptions(Action thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
         {
             int retries = maxRetries;
             if (retry == default(TimeSpan))
