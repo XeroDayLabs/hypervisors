@@ -183,7 +183,7 @@ namespace hypervisors
             }
         }
 
-        public void copyToGuest(string srcpath, string dstpath, bool ignoreExisting = false)
+        public void copyToGuest(string srcpath, string dstpath)
         {   
             if (!dstpath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
@@ -200,12 +200,8 @@ namespace hypervisors
                     using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
                     {
                         if (File.Exists(destUNC))
-                        {
-                            if (ignoreExisting)
-                                break;
-                            throw new Exception("File " + destUNC + " already exists on target");
-                        }
-
+                            break;
+                        // race condition here?
                         System.IO.File.Copy(srcpath, destUNC);
                     }
                     break;
@@ -274,7 +270,7 @@ namespace hypervisors
     public interface IRemoteExecution
     {
         void mkdir(string newDir);
-        void copyToGuest(string srcpath, string dstpath, bool ignoreExisting);
+        void copyToGuest(string srcpath, string dstpath);
         string getFileFromGuest(string srcpath);
         executionResult startExecutable(string toExecute, string args, string workingDir = null);
         void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null);

@@ -206,21 +206,21 @@ namespace hypervisors
             }
         }
 
-        public override void copyToGuest(string srcpath, string dstpath, bool ignoreExising)
+        public override void copyToGuest(string srcpath, string dstpath)
         {
             doWithRetryOnSomeExceptions(() =>
             {
                 lock (VMWareLock)
                 {
-                    _copyToGuest(srcpath, dstpath, ignoreExising);
+                    _copyToGuest(srcpath, dstpath);
                 }
                 return null;
             }, TimeSpan.FromMilliseconds(100), 100);
         }
 
-        private void _copyToGuest(string srcpath, string dstpath, bool ignoreExisting)
+        private void _copyToGuest(string srcpath, string dstpath)
         {
-            executor.copyToGuest(srcpath, dstpath, ignoreExisting);
+            executor.copyToGuest(srcpath, dstpath);
         }
 
         public override string getFileFromGuest(string srcpath)

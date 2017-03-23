@@ -14,12 +14,7 @@ namespace hypervisors
         public override void connect()
         {
         }
-
-        protected override void _Dispose()
-        {
-            base._Dispose();
-        }
-
+        
         public override void powerOn()
         {
 
@@ -30,16 +25,12 @@ namespace hypervisors
 
         }
 
-        public override void copyToGuest(string srcpath, string dstpath, bool ignoreExisting)
+        public override void copyToGuest(string srcpath, string dstpath)
         {
             if (dstpath.EndsWith("\\"))
                 dstpath += Path.GetFileName(srcpath);
             if (File.Exists(dstpath))
-            {
-                if (ignoreExisting)
-                    return;
-                throw  new Exception("File " + dstpath + " already exists");
-            }
+                return;
 
             File.Copy(srcpath, dstpath);
         }

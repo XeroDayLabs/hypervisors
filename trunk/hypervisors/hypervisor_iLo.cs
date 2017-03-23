@@ -303,11 +303,11 @@ namespace hypervisors
             return _spec;
         }
 
-        public override void copyToGuest(string srcpath, string dstpath, bool ignoreExisting = false)
+        public override void copyToGuest(string srcpath, string dstpath)
         {
             if (_executor == null)
                 throw new NotSupportedException();
-            _executor.copyToGuest(srcpath, dstpath, ignoreExisting);
+            _executor.copyToGuest(srcpath, dstpath);
         }
 
         public override string ToString()

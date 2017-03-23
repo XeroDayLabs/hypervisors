@@ -37,7 +37,7 @@ namespace hypervisors
             GFM.MakeDirectoryInGuest(_underlyingVM.MoRef, Auth, newDir, true);
         }
 
-        public void copyToGuest(string srcpath, string dstpath, bool ignoreExisting)
+        public void copyToGuest(string srcpath, string dstpath)
         {
             NamePasswordAuthentication Auth = new NamePasswordAuthentication
             {
