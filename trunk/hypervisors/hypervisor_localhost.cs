@@ -6,8 +6,6 @@ namespace hypervisors
 {
     public class hypervisor_localhost : hypervisor
     {
-        private Process _p = null;
-
         public override void restoreSnapshotByName(string snapshotNameOrID)
         {
             throw new NotImplementedException();
@@ -19,17 +17,6 @@ namespace hypervisors
 
         protected override void _Dispose()
         {
-            try
-            {
-                if (_p != null)
-                {
-                    _p.CloseMainWindow();
-                    _p.WaitForExit();
-                }
-            }
-            catch (InvalidOperationException)
-            {
-            }
             base._Dispose();
         }
 
@@ -72,15 +59,17 @@ namespace hypervisors
             ps.RedirectStandardError = true;
             ps.RedirectStandardOutput = true;
             ps.WorkingDirectory = workingDir;
-            _p = Process.Start(ps);
-            _p.WaitForExit();
-
-            return new executionResult()
+            using (Process process = Process.Start(ps))
             {
-                resultCode = _p.ExitCode,
-                stderr = _p.StandardError.ReadToEnd(),
-                stdout = _p.StandardOutput.ReadToEnd()
-            };
+                process.WaitForExit();
+
+                return new executionResult()
+                {
+                    resultCode = process.ExitCode,
+                    stderr = process.StandardError.ReadToEnd(),
+                    stdout = process.StandardOutput.ReadToEnd()
+                };
+            }
         }
 
         public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
@@ -93,7 +82,7 @@ namespace hypervisors
 
             ProcessStartInfo ps = new ProcessStartInfo(toExecute, args);
             ps.WorkingDirectory = workingDir;
-            _p = Process.Start(ps);
+            Process.Start(ps).Dispose();
         }
 
         public override void mkdir(string newDir)
