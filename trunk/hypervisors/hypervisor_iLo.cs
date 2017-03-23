@@ -119,7 +119,22 @@ namespace hypervisors
 
         public override void powerOn()
         {
-            _ilo.powerOn();
+            if (getPowerStatus() == true)
+                return;
+
+            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+            while (true)
+            {
+                if (getPowerStatus() == true)
+                    break;
+
+                _ilo.powerOn();
+
+                if (DateTime.Now > deadline)
+                    throw new TimeoutException();
+
+                Thread.Sleep(TimeSpan.FromSeconds(2));
+            }
 
             // Wait until the host is up enough that we can ping it...
             WaitForStatus(true, TimeSpan.FromMinutes(6));
@@ -232,12 +247,18 @@ namespace hypervisors
 
         public override void powerOff()
         {
-            DateTime deadline = DateTime.Now + TimeSpan.FromSeconds(20);
+            if (_ilo.getPowerStatus() == false)
+                return;
 
-            _ilo.powerOff();
-            while (_ilo.getPowerStatus())
+            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+            while (true)
             {
-                Thread.Sleep(TimeSpan.FromMilliseconds(500));
+                _ilo.powerOff();
+
+                if (getPowerStatus() == false)
+                    break;
+
+                Thread.Sleep(TimeSpan.FromSeconds(3));
                 if (deadline < DateTime.Now)
                     throw new Exception("Failed to turn off machine via iLo");
             }
