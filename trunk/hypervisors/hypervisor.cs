@@ -34,7 +34,7 @@ namespace hypervisors
             }
             foreach (string srcName in Directory.GetDirectories(src))
             {
-                copyDirToGuest(srcName, Path.Combine(dest, Path.G`etFileName(srcName)));
+                copyDirToGuest(srcName, Path.Combine(dest, Path.GetFileName(srcName)));
             }
         }
     }
