@@ -24,7 +24,7 @@ namespace hypervisors
         {
         }
 
-        public void copyDirToGuest(string src, string dest, bool ignoreErrors = false)
+        public void copyDirToGuest(string src, string dest)
         {
             if (!File.Exists(dest))
                 mkdir(dest);
@@ -34,7 +34,7 @@ namespace hypervisors
             }
             foreach (string srcName in Directory.GetDirectories(src))
             {
-                copyDirToGuest(srcName, Path.Combine(dest, Path.GetFileName(srcName)), ignoreErrors);
+                copyDirToGuest(srcName, Path.Combine(dest, Path.G`etFileName(srcName)));
             }
         }
     }
