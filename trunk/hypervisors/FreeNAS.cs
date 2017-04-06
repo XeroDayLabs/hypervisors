@@ -388,7 +388,7 @@ namespace hypervisors
 
                     string cmdOut = ourCmd.Result;
                     List<ctlAdmDevice> devices = ctlAdmDevice.parseList(cmdOut);
-                    dev = devices.Single(x => x.ctld_name == ext.iscsi_target_extent_name);
+                    dev = devices.SingleOrDefault(x => x.ctld_name == ext.iscsi_target_extent_name);
                     if (dev == null)
                     {
                         // I guess FreeNAS removed it properly this time :)
