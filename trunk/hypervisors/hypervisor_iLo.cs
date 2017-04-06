@@ -57,6 +57,7 @@ namespace hypervisors
             // TODO: can we just tell freeNAS to delete this stuff instead?
             nas.deleteISCSITargetToExtent(shotObjects.tgtToExtent);
             nas.deleteISCSIExtent(shotObjects.extent);
+            nas.deleteiSCSILUNIfNeeded(shotObjects.extent);
             try
             {
                 // Roll back the snapshot. Use a retry, since FreeNAS is complaining the dataset is in use occasionally.

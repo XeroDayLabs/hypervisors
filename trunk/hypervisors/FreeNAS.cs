@@ -7,6 +7,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
+using Renci.SshNet;
 
 namespace hypervisors
 {
@@ -369,10 +370,131 @@ namespace hypervisors
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/?format=json", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<targetGroup>>(HTTPResponse);
         }
+
+        public void deleteiSCSILUNIfNeeded(iscsiExtent ext)
+        {
+            // Now that we've disabled the nop-out of the iscsi server, our sessions won't get terminated. Because of this, we need
+            // to terminate them ourselves. This functionality isn't exposed anywhere, so we have to use an SSH session for it.
+            using (SshClient ourClient = new SshClient(_serverIp, _username, _password))
+            {
+                ourClient.Connect();
+
+                ctlAdmDevice dev;
+                using (SshCommand ourCmd = ourClient.CreateCommand("ctladm devlist -v"))
+                {
+                    ourCmd.Execute();
+                    if (ourCmd.ExitStatus != 0)
+                        throw new Exception("Couldn't execute 'ctladm devlist -v', stderr '" + ourCmd.Error + "'");
+
+                    string cmdOut = ourCmd.Result;
+                    List<ctlAdmDevice> devices = ctlAdmDevice.parseList(cmdOut);
+                    dev = devices.Single(x => x.ctld_name == ext.iscsi_target_extent_name);
+                    if (dev == null)
+                    {
+                        // I guess FreeNAS removed it properly this time :)
+                        return;
+                    }
+                }
+
+                using (SshCommand ourCmd = ourClient.CreateCommand("ctladm remove -b block -l " + dev.deviceID))
+                {
+                    ourCmd.Execute();
+                    if (ourCmd.ExitStatus != 0)
+                    {
+                        // I guess it was removed after we made our list?
+                        Debug.WriteLine("Error deleting iscsi LUN: " + ourCmd.Error);
+                    }
+                }
+            }
+        }
     }
 
+    public class ctlAdmDevice
+    {
+        public int deviceID;
+        public int lun_type;
+        public int num_threads;
+        public string vendor;
+        public string product;
+        public string revision;
+        public string naa;
+        public bool insecure_tpc;
+        public int rpm;
+        public string file;
+        public string ctld_name;
 
+        public static List<ctlAdmDevice> parseList(string fullResult)
+        {
+            List<ctlAdmDevice> toRet = new List<ctlAdmDevice>();
 
+            ctlAdmDevice curDev = null;
+            foreach (string resLine in fullResult.Split('\n', '\r'))
+            {
+                if (resLine.Trim().Length == 0)
+                    continue;
+
+                if (resLine.Substring(4, 5) == "block")
+                {
+                    // This is the start of a new device.
+                    if (curDev != null)
+                        toRet.Add(curDev);
+                    curDev = new ctlAdmDevice() {deviceID = int.Parse(resLine.Substring(0, 3)) };
+                }
+                else
+                {
+                    string[] split = resLine.Trim().Split('=');
+                    if (split.Length != 2)
+                        continue;
+                    string key = split[0];
+                    string val = split[1];
+                    switch (key)
+                    {
+                        case "lun_type":
+                            curDev.lun_type = Int32.Parse(val);
+                            break;
+                        case "num_threads":
+                            curDev.num_threads = Int32.Parse(val);
+                            break;
+                        case "vendor":
+                            curDev.vendor = val;
+                            break;
+                        case "product":
+                            curDev.product = val;
+                            break;
+                        case "revision":
+                            curDev.revision = val;
+                            break;
+                        case "naa":
+                            curDev.naa = val;
+                            break;
+                        case "insecure_tpc":
+                            if (val == "on")
+                                curDev.insecure_tpc = true;
+                            else if (val == "off")
+                                    curDev.insecure_tpc = false;
+                            else
+                                throw new Exception("Can't parse insecure_tpc value '" + val + "'" );
+                            break;
+                        case "rpm":
+                            curDev.rpm = Int32.Parse(val);
+                            break;
+                        case "file":
+                            curDev.file = val;
+                            break;
+                        case "ctld_name":
+                            curDev.ctld_name = val;
+                            break;
+                    }
+                }
+            }
+
+            if (curDev != null)
+                toRet.Add(curDev);
+
+            return toRet;
+        }
+    }
+    
     public class targetGroup
     {
         [JsonProperty("id")]
