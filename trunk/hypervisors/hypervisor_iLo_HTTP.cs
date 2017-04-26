@@ -277,7 +277,14 @@ namespace hypervisors
 
         public void Dispose()
         {
-            logout();
+            try
+            {
+                logout();
+            }
+            catch (Exception)
+            {
+                // .. oh well ..
+            }
         }
     }
 
