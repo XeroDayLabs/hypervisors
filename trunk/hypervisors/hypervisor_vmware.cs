@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
+using System.Web.Services.Protocols;
 using VMware.Vim;
 using Action = System.Action;
 
@@ -12,9 +13,6 @@ namespace hypervisors
     public class hypervisor_vmware : hypervisorWithSpec<hypSpec_vmware>
     {
         private readonly hypSpec_vmware _spec;
-
-        // Maybe this will make all my weird vmware problems go away :^)
-        private static Object VMWareLock = new Object();
 
         private VimClientImpl VClient;
         private VirtualMachine _underlyingVM;
@@ -31,17 +29,14 @@ namespace hypervisors
         {
             _spec = spec;
 
-            lock (VMWareLock)
-            {
-                VClient = new VimClientImpl();
-                VClient.Connect("https://" + _spec.kernelVMServer + "/sdk");
-                VClient.Login(_spec.kernelVMServerUsername, _spec.kernelVMServerPassword);
+            VClient = new VimClientImpl();
+            VClient.Connect("https://" + _spec.kernelVMServer + "/sdk");
+            VClient.Login(_spec.kernelVMServerUsername, _spec.kernelVMServerPassword);
 
-                List<EntityViewBase> vmlist = VClient.FindEntityViews(typeof (VirtualMachine), null, null, null);
-                _underlyingVM = (VirtualMachine) vmlist.SingleOrDefault(x => ((VirtualMachine) x).Config.Name.ToLower() == _spec.kernelVMName.ToLower());
-                if (_underlyingVM == null)
-                    throw new Exception("Can't find VM named '" + _spec.kernelVMName + "'");
-            }
+            List<EntityViewBase> vmlist = VClient.FindEntityViews(typeof (VirtualMachine), null, null, null);
+            _underlyingVM = (VirtualMachine) vmlist.SingleOrDefault(x => ((VirtualMachine) x).Config.Name.ToLower() == _spec.kernelVMName.ToLower());
+            if (_underlyingVM == null)
+                throw new Exception("Can't find VM named '" + _spec.kernelVMName + "'");
 
             _executionMethod = newExecMethod;
             switch (newExecMethod)
@@ -59,17 +54,14 @@ namespace hypervisors
 
         public override void restoreSnapshotByName(string snapshotNameOrID)
         {
-            lock (VMWareLock)
-            {
-                _underlyingVM.UpdateViewData();
+            _underlyingVM.UpdateViewData();
 
-                // Find its named snapshot
-                VirtualMachineSnapshotTree snapshot = findRecusively(_underlyingVM.Snapshot.RootSnapshotList, snapshotNameOrID);
+            // Find its named snapshot
+            VirtualMachineSnapshotTree snapshot = findRecusively(_underlyingVM.Snapshot.RootSnapshotList, snapshotNameOrID);
 
-                // and revert it.
-                VirtualMachineSnapshot shot = new VirtualMachineSnapshot(VClient, snapshot.Snapshot);
-                shot.RevertToSnapshot(_underlyingVM.MoRef, false);
-            }
+            // and revert it.
+            VirtualMachineSnapshot shot = new VirtualMachineSnapshot(VClient, snapshot.Snapshot);
+            shot.RevertToSnapshot(_underlyingVM.MoRef, false);
         }
 
         private VirtualMachineSnapshotTree findRecusively(VirtualMachineSnapshotTree[] parent, string snapshotNameOrID)
@@ -97,6 +89,14 @@ namespace hypervisors
                     return thingtoDo.Invoke();
                 }
                 catch (VimException e)
+                {
+                    if (maxRetries != 0)
+                    {
+                        if (retries-- == 0)
+                            throw;
+                    }
+                }
+                catch (SoapException e)
                 {
                     if (maxRetries != 0)
                     {
@@ -138,35 +138,29 @@ namespace hypervisors
 
         public override void powerOn()
         {
-            lock (VMWareLock)
+            // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
+            // particularly under load, hence the retries.
+            doWithRetryOnSomeExceptions(() =>
             {
-                // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
-                // particularly under load, hence the retries.
-                doWithRetryOnSomeExceptions(() =>
+                //lock (VMWareLock)
                 {
-                    lock (VMWareLock)
-                    {
-                        _underlyingVM.UpdateViewData();
-                        Debug.WriteLine(_underlyingVM.Runtime.PowerState);
-                        if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOn)
-                            return null;
-                        _underlyingVM.PowerOnVM(_underlyingVM.Runtime.Host);
-                    }
-                    return null;
-                }, TimeSpan.FromSeconds(3), 100);
-            }
-
+                    _underlyingVM.UpdateViewData();
+                    Debug.WriteLine(_underlyingVM.Runtime.PowerState);
+                    if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOn)
+                        return null;
+                    _underlyingVM.PowerOnVM(_underlyingVM.Runtime.Host);
+                }
+                return null;
+            }, TimeSpan.FromSeconds(3), 100);
+            
             // Wait for it to be ready
             if (_executionMethod == clientExecutionMethod.vmwaretools)
             {
                 while (true)
                 {
-                    lock (VMWareLock)
-                    {
-                        _underlyingVM.UpdateViewData();
-                        if (_underlyingVM.Guest.ToolsRunningStatus == VirtualMachineToolsRunningStatus.guestToolsRunning.ToString())
-                            break;
-                    }
+                    _underlyingVM.UpdateViewData();
+                    if (_underlyingVM.Guest.ToolsRunningStatus == VirtualMachineToolsRunningStatus.guestToolsRunning.ToString())
+                        break;
 
                     Thread.Sleep(TimeSpan.FromSeconds(3));
                 }
@@ -175,10 +169,7 @@ namespace hypervisors
             // No, really, wait for it to be ready
             doWithRetryOnSomeExceptions(() =>
             {
-                lock (VMWareLock)
-                {
-                    startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
-                }
+                startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
                 return "";
             }, TimeSpan.FromSeconds(5), 100);
         }
@@ -193,14 +184,11 @@ namespace hypervisors
             {
                 doWithRetryOnSomeExceptions(() =>
                 {
-                    lock (VMWareLock)
-                    {
-                        _underlyingVM.UpdateViewData();
-                        Debug.WriteLine("poweroff: old state " + _underlyingVM.Runtime.PowerState);
-                        if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
-                            return null;
-                        _underlyingVM.PowerOffVM();
-                    }
+                    _underlyingVM.UpdateViewData();
+                    Debug.WriteLine("poweroff: old state " + _underlyingVM.Runtime.PowerState);
+                    if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
+                        return null;
+                    _underlyingVM.PowerOffVM();
                     return null;
                 }, TimeSpan.FromSeconds(1), 10);
             }
@@ -210,10 +198,7 @@ namespace hypervisors
         {
             doWithRetryOnSomeExceptions(() =>
             {
-                lock (VMWareLock)
-                {
-                    _copyToGuest(srcpath, dstpath);
-                }
+                _copyToGuest(srcpath, dstpath);
                 return null;
             }, TimeSpan.FromMilliseconds(100), 100);
         }
@@ -227,10 +212,7 @@ namespace hypervisors
         {
             return doWithRetryOnSomeExceptions(() =>
             {
-                lock (VMWareLock)
-                {
-                    return executor.getFileFromGuest(srcpath);
-                }
+                return executor.getFileFromGuest(srcpath);
             }, TimeSpan.FromMilliseconds(100), 100);
         }
 
@@ -248,10 +230,7 @@ namespace hypervisors
         {
             doWithRetryOnSomeExceptions(() =>
             {
-                lock (VMWareLock)
-                {
-                    executor.mkdir(newDir);
-                }
+                executor.mkdir(newDir);
                 return null;
             }, TimeSpan.FromMilliseconds(100), 100);
         }
@@ -259,6 +238,15 @@ namespace hypervisors
         public override hypSpec_vmware getConnectionSpec()
         {
             return _spec;
+        }
+
+        public override bool getPowerStatus()
+        {
+            _underlyingVM.UpdateViewData();
+            if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOn)
+                return true;
+            else
+                return false;
         }
 
         public override string ToString()
@@ -270,6 +258,7 @@ namespace hypervisors
     public enum clientExecutionMethod
     {
         vmwaretools,
-        smb
+        smb,
+        SSHToBASH
     }
 }

@@ -128,6 +128,13 @@ namespace hypervisors
             _startExecutable("cmd.exe", cmdargs, false, workingDir);
         }
 
+        public void testConnectivity()
+        {
+            executionResult res = startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo teststring");
+            if (!res.stdout.Contains("teststring"))
+                throw new hypervisorExecutionException_retryable();            
+        }
+
         private void _startExecutable(string toExecute, string args, bool waitForExit, string workingDir = null)
         {
             if (workingDir == null)

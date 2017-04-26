@@ -29,15 +29,20 @@ namespace hypervisors
     public class hypervisor_iLo : hypervisorWithSpec<hypSpec_iLo>
     {
         private hypervisor_iLo_HTTP _ilo;
-        private SMBExecutor _executor;
+        private IRemoteExecution _executor;
 
         private hypSpec_iLo _spec;
 
-        public hypervisor_iLo(hypSpec_iLo spec)
+        public hypervisor_iLo(hypSpec_iLo spec, clientExecutionMethod newExecMethod = clientExecutionMethod.smb)
         {
             _spec = spec;
             _ilo = new hypervisor_iLo_HTTP(spec.iLoHostname, spec.iLoUsername, spec.iLoPassword);
-            _executor = new SMBExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
+            if (newExecMethod == clientExecutionMethod.smb)
+                _executor = new SMBExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
+            else if (newExecMethod == clientExecutionMethod.vmwaretools)
+                throw new NotSupportedException();
+            else if (newExecMethod == clientExecutionMethod.SSHToBASH)
+                _executor = new SSHExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
         }
 
         public override void restoreSnapshotByName(string ignored)
@@ -57,7 +62,6 @@ namespace hypervisors
             // TODO: can we just tell freeNAS to delete this stuff instead?
             nas.deleteISCSITargetToExtent(shotObjects.tgtToExtent);
             nas.deleteISCSIExtent(shotObjects.extent);
-            //nas.deleteiSCSILUNIfNeeded(shotObjects.extent);
             try
             {
                 // Roll back the snapshot. Use a retry, since FreeNAS is complaining the dataset is in use occasionally.
@@ -120,10 +124,15 @@ namespace hypervisors
 
         public override void powerOn()
         {
+            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+            powerOn(deadline);
+        }
+ 
+        public void powerOn(DateTime connectDeadline)
+        {
             if (getPowerStatus() == true)
                 return;
 
-            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
             while (true)
             {
                 if (getPowerStatus() == true)
@@ -131,7 +140,7 @@ namespace hypervisors
 
                 _ilo.powerOn();
 
-                if (DateTime.Now > deadline)
+                if (DateTime.Now > connectDeadline)
                     throw new TimeoutException();
 
                 Thread.Sleep(TimeSpan.FromSeconds(2));
@@ -140,55 +149,25 @@ namespace hypervisors
             // Wait until the host is up enough that we can ping it...
             WaitForStatus(true, TimeSpan.FromMinutes(6));
 
-            if (_executor != null)
+            // Now wait for it to be up enough that we can psexec to it.
+            doWithRetryOnSomeExceptions(() =>
             {
-                // Now wait for it to be up enough that we can psexec to it.
-                doWithRetryOnSomeExceptions(() =>
-                {
-                    _executor.startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
-                });
-            }
-        }
-
-        public void WaitForStatus(bool waitForState, TimeSpan timeout = default(TimeSpan))
-        {
-            DateTime deadline;
-            if (timeout == default(TimeSpan))
-                deadline = DateTime.MaxValue;
-            else
-                deadline = DateTime.Now + timeout;
-
-            // Wait for the box to go down/come up.
-            Debug.Print("Waiting for box " + _spec.iLoHostname + " to " + (waitForState ? "come up" : "go down"));
-            while (true)
-            {
-                if (DateTime.Now > deadline)
-                    throw new TimeoutException();
-
-                if (waitForState)
-                {
-                    Icmp pinger = new Org.Mentalis.Network.Icmp(IPAddress.Parse(_spec.kernelDebugIPOrHostname));
-                    TimeSpan res = pinger.Ping(TimeSpan.FromMilliseconds(500));
-                    if (res != TimeSpan.MaxValue)
-                    {
-                        Debug.Print(".. Box " + _spec.iLoHostname + " pingable, giving it a few more seconds..");
-                        Thread.Sleep(10*1000);
-                        break;
-                    }
-                }
-                else
-                {
-                    if (getPowerStatus() == false)
-                        break;
-                }
-
-                Thread.Sleep(5000);
-            }
-
-            Debug.Print(".. wait complete for box " + _spec.iLoHostname);
+                _executor.testConnectivity();
+                return 0;
+            });
         }
 
         public static void doWithRetryOnSomeExceptions(Action thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
+        {
+            doWithRetryOnSomeExceptions<int>(
+                new Func<int>(() => { 
+                    thingtoDo(); 
+                    return 0;
+                }),
+                retry, maxRetries);
+        }
+
+        public static T doWithRetryOnSomeExceptions<T>(Func<T> thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
         {
             int retries = maxRetries;
             if (retry == default(TimeSpan))
@@ -198,8 +177,7 @@ namespace hypervisors
             {
                 try
                 {
-                    thingtoDo.Invoke();
-                    break;
+                    return thingtoDo.Invoke();
                 }
                 catch (Win32Exception)
                 {
@@ -266,7 +244,7 @@ namespace hypervisors
         }
 
 
-        private bool getPowerStatus()
+        public override bool getPowerStatus()
         {
             return _ilo.getPowerStatus();
         }
@@ -282,7 +260,10 @@ namespace hypervisors
         {
             if (_executor == null)
                 throw new NotSupportedException();
-            return _executor.startExecutable(toExecute, args, workingdir);
+            executionResult toRet = _executor.startExecutable(toExecute, args, workingdir);
+            Debug.WriteLine("Command " + toRet +" " + args + " result stdout " + toRet.stdout);
+
+            return toRet;
         }
 
         public override void startExecutableAsync(string toExecute, string args, string workingdir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
@@ -324,9 +305,9 @@ namespace hypervisors
 
         protected override void _Dispose()
         {
-            _ilo.logout();
+            _ilo.Dispose();
 
-            base._Dispose();
+            
         }
     }
 }

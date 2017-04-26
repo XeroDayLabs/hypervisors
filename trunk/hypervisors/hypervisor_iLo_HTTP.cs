@@ -11,7 +11,7 @@ namespace hypervisors
     /// <summary>
     /// This class represents the HTTP connection to the iLo. It provides very basic functionality, such as power control.
     /// </summary>
-    public class hypervisor_iLo_HTTP
+    public class hypervisor_iLo_HTTP : IDisposable
     {
         private string _ip;
         private string _username;
@@ -273,6 +273,11 @@ namespace hypervisors
                 default:
                     throw new Exception("Unrecognised power state '" + pwrResp.hostpwr_state + "'");
             }
+        }
+
+        public void Dispose()
+        {
+            logout();
         }
     }
 

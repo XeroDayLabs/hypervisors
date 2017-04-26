@@ -71,6 +71,13 @@ namespace hypervisors
             toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, true);
         }
 
+        public void testConnectivity()
+        {
+            executionResult res = startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo teststring");
+            if (!res.stdout.Contains("teststring"))
+                throw new hypervisorExecutionException_retryable();            
+        }
+
         private int _startExecutable(string toExecute, string cmdArgs, string workingDir = null, bool detach = false)
         {
             if (workingDir == null)
@@ -81,9 +88,9 @@ namespace hypervisors
             {
                 File.WriteAllText(tempFile, toExecute + " " + cmdArgs);
 
-                string psExecArgs = string.Format("\\\\{0} {6} {7} -c -u {1} -p {2} -w {5} -h \"{4}\"",
-                    _guestIP, _username, _password, toExecute, tempFile, workingDir, detach ? " -d " : "", runInteractively ? " -i " : "");
-                ProcessStartInfo info = new ProcessStartInfo("psexec.exe", psExecArgs);
+                string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -c -u {1} -p {2} -w {4} -h \"{3}\"",
+                    _guestIP, _username, _password, tempFile, workingDir, detach ? " -d " : "", runInteractively ? " -i " : "");
+                ProcessStartInfo info = new ProcessStartInfo(@"C:\ProgramData\chocolatey\bin\PsExec.exe", psExecArgs);
                 info.RedirectStandardError = true;
                 info.RedirectStandardOutput = true;
                 info.UseShellExecute = false;
@@ -124,7 +131,7 @@ namespace hypervisors
                     return 0;
                 }
 
-                Debug.WriteLine("psexec returned " + proc.ExitCode);
+                Debug.WriteLine("psexec returned " + proc.ExitCode + " " + stdout + " / " + stderr);
                 if (proc.ExitCode == 6 || proc.ExitCode == 2250)
                     throw new hypervisorExecutionException_retryable();
                 return proc.ExitCode;
@@ -274,6 +281,7 @@ namespace hypervisors
         string getFileFromGuest(string srcpath);
         executionResult startExecutable(string toExecute, string args, string workingDir = null);
         void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null);
+        void testConnectivity();
     }
 
     [Serializable]
