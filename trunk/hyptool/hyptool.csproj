@@ -33,7 +33,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="CommandLine">
-      <HintPath>..\..\ThirdParty\commandlineparser\CommandLine.dll</HintPath>
+      <HintPath>$(Solutiondir)\..\ThirdParty\commandlineparser\CommandLine.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -51,7 +51,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\ThirdParty\ZabbixSenderNet\ZabbixSenderNet\ZabbixSenderNet.csproj">
+    <ProjectReference Include="$(Solutiondir)\..\ThirdParty\ZabbixSenderNet\ZabbixSenderNet\ZabbixSenderNet.csproj">
       <Project>{1e264e84-82f5-4e8f-9847-4ee0cb8f5117}</Project>
       <Name>ZabbixSenderNet</Name>
     </ProjectReference>

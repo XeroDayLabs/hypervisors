@@ -50,16 +50,16 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
     <Reference Include="Tamir.SharpSSH">
-      <HintPath>..\..\..\sharpssh\Tamir.SharpSSH.dll</HintPath>
+      <HintPath>$(Solutiondir)\..\ThirdParty\sharpssh\Tamir.SharpSSH.dll</HintPath>
     </Reference>
     <Reference Include="VimService60">
-      <HintPath>..\..\ThirdParty\vmware\VimService60.dll</HintPath>
+      <HintPath>$(Solutiondir)\..\ThirdParty\vmware\VimService60.dll</HintPath>
     </Reference>
     <Reference Include="VimService60.XmlSerializers">
-      <HintPath>..\..\ThirdParty\vmware\VimService60.XmlSerializers.dll</HintPath>
+      <HintPath>$(Solutiondir)\..\ThirdParty\vmware\VimService60.XmlSerializers.dll</HintPath>
     </Reference>
     <Reference Include="VMware.Vim">
-      <HintPath>..\..\ThirdParty\vmware\VMware.Vim.dll</HintPath>
+      <HintPath>$(Solutiondir)\..\ThirdParty\vmware\VMware.Vim.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
