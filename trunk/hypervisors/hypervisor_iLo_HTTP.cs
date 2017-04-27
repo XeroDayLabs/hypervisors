@@ -279,7 +279,7 @@ namespace hypervisors
         {
             try
             {
-                logout();
+                _doRequest("login_session", "logout");
             }
             catch (Exception)
             {
