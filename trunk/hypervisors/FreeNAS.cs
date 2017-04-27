@@ -12,13 +12,24 @@ namespace hypervisors
 {
     public class nasAccessException : Exception
     {
-        public nasAccessException(string e) : base(e)
-        {
-        }
+        public nasAccessException(string e) : base(e) { }
 
-        public nasAccessException() : base()
+        public nasAccessException() : base() { }
+
+        public static Exception create(HttpWebResponse resp, string url, string contentString)
         {
+            if (resp.StatusCode == HttpStatusCode.Conflict)
+                return new nasConflictException("FreeNAS API call failed with 'conflict' status. URL " + url + " HTTP response body " + contentString);
+            else
+                return new nasAccessException("FreeNAS API call failed, status " + resp.StatusCode + ", URL " + url + 
+                    " HTTP response body " + contentString);
         }
+    }
+
+    public class nasConflictException : nasAccessException
+    {
+        public nasConflictException() : base() { }
+        public nasConflictException(string s) : base(s) { }
     }
 
     public class FreeNAS
@@ -99,19 +110,15 @@ namespace hypervisors
                     using (StreamReader respStreamReader = new StreamReader(respStream))
                     {
                         string contentString = respStreamReader.ReadToEnd();
-                        throw new nasAccessException("FreeNAS API call failed, status " + ((HttpWebResponse)e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                        throw nasAccessException.create(((HttpWebResponse)e.Response, contentString);
                     }
                 }
-            }
-            catch (nasAccessException)
-            {
-                throw new Exception("FreeNAS API call failed, no response");
             }
         }
 
         public List<iscsiTarget> getISCSITargets()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/target/", "get", HttpStatusCode.OK).text;
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/target/?limit=9999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<iscsiTarget>>(HTTPResponse);
         }
 
@@ -150,7 +157,7 @@ namespace hypervisors
             // Now we can do the request to delete the snapshot.
             string resp = DoNonAPIReq("storage/zvol/delete/" + toDelete.path + "/", HttpStatusCode.OK, "");
             if (resp.Contains("\"error\": true") || !resp.Contains("Volume successfully destroyed"))
-                throw new Exception("Volume deletion failed: " + resp);
+                throw new nasAccessException("Volume deletion failed: " + resp);
         }
 
         public void deleteISCSIExtent(iscsiExtent extent)
@@ -161,7 +168,7 @@ namespace hypervisors
 
         public List<volume> getVolumes()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/volume", "get", HttpStatusCode.OK).text;
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/volume/?limit=9999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<volume>>(HTTPResponse);
         }
 
