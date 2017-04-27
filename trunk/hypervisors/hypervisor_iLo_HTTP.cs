@@ -42,8 +42,6 @@ namespace hypervisors
 
         private string doRequest(string pageName, string methodName, bool isPost = true)
         {
-            connect();
-
             int retriesLeft = retries;
             while (true)
             {
