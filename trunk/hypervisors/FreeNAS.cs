@@ -96,7 +96,7 @@ namespace hypervisors
                             string contentString = respStreamReader.ReadToEnd();
 
                             if (resp.StatusCode != expectedCode)
-                                throw new nasAccessException("FreeNAS API call failed, status " + resp.StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                                throw nasAccessException.create(resp, url, contentString);
 
                             return new resp() {text = contentString};
                         }
@@ -110,7 +110,7 @@ namespace hypervisors
                     using (StreamReader respStreamReader = new StreamReader(respStream))
                     {
                         string contentString = respStreamReader.ReadToEnd();
-                        throw nasAccessException.create(((HttpWebResponse)e.Response, contentString);
+                        throw nasAccessException.create(((HttpWebResponse)e.Response), url, contentString);
                     }
                 }
             }
