@@ -10,6 +10,17 @@ using Newtonsoft.Json;
 
 namespace hypervisors
 {
+    public class nasAccessException : Exception
+    {
+        public nasAccessException(string e) : base(e)
+        {
+        }
+
+        public nasAccessException() : base()
+        {
+        }
+    }
+
     public class FreeNAS
     {
         private readonly string _serverIp;
@@ -33,7 +44,7 @@ namespace hypervisors
                 {
                     return _doReq(url, method, expectedCode, payload);
                 }
-                catch (Exception)
+                catch (nasAccessException)
                 {
                     if (DateTime.Now > deadline)
                         throw;
@@ -74,7 +85,7 @@ namespace hypervisors
                             string contentString = respStreamReader.ReadToEnd();
 
                             if (resp.StatusCode != expectedCode)
-                                throw new Exception("FreeNAS API call failed, status " + resp.StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                                throw new nasAccessException("FreeNAS API call failed, status " + resp.StatusCode + ", URL " + url + " HTTP response body " + contentString);
 
                             return new resp() {text = contentString};
                         }
@@ -88,11 +99,11 @@ namespace hypervisors
                     using (StreamReader respStreamReader = new StreamReader(respStream))
                     {
                         string contentString = respStreamReader.ReadToEnd();
-                        throw new Exception("FreeNAS API call failed, status " + ((HttpWebResponse)e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                        throw new nasAccessException("FreeNAS API call failed, status " + ((HttpWebResponse)e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
                     }
                 }
             }
-            catch (Exception)
+            catch (nasAccessException)
             {
                 throw new Exception("FreeNAS API call failed, no response");
             }
@@ -128,7 +139,7 @@ namespace hypervisors
             doReq(url, "DELETE", HttpStatusCode.NoContent);            
         }
 
-        private void deleteZVol(volume parent, volume toDelete)
+        public void deleteZVol(volume parent, volume toDelete)
         {
             string url = String.Format("http://{0}/api/v1.0/storage/volume/{1}/zvols/{2}", _serverIp, parent.name, toDelete.name);
             doReq(url, "DELETE", HttpStatusCode.NoContent);
@@ -146,7 +157,7 @@ namespace hypervisors
             return JsonConvert.DeserializeObject<List<volume>>(HTTPResponse);
         }
 
-        private void cloneSnapshot(snapshot snapshot, string path)
+        public void cloneSnapshot(snapshot snapshot, string path)
         {
             string url = String.Format("http://{0}/api/v1.0/storage/snapshot/{1}/clone/", _serverIp, snapshot.fullname);
             string payload = String.Format("{{\"name\": \"{0}\" }}", path);
@@ -220,7 +231,7 @@ namespace hypervisors
             string resp = DoNonAPIReq("storage/snapshot/rollback/" + shotToRestore.fullname + "/", HttpStatusCode.OK, "");
 
             if (resp.Contains("\"error\": true") || !resp.Contains("Rollback successful."))
-                throw new Exception("Rollback failed: " + resp);
+                throw new nasAccessException("Rollback failed: " + resp);
         }
 
         private string DoNonAPIReq(string urlRel, HttpStatusCode expectedCode, string postVars = null)
@@ -252,7 +263,7 @@ namespace hypervisors
                 using (resp = (HttpWebResponse) req.GetResponse())
                 {
                     if (resp.StatusCode != expectedCode)
-                        throw new Exception("Statuss code was " + resp.StatusCode + " but expected " + expectedCode + " while requesting " + urlRel);
+                        throw new nasAccessException("Statuss code was " + resp.StatusCode + " but expected " + expectedCode + " while requesting " + urlRel);
 
                     using (Stream respStream = resp.GetResponseStream())
                     {
@@ -342,7 +353,7 @@ namespace hypervisors
             // Chop off leading '/dev/' from path
             string extentPath = extent.iscsi_target_extent_path;
             if (!extentPath.StartsWith("/dev/") )
-                throw  new Exception();
+                throw new nasAccessException();
             extentPath = extentPath.Substring(5);
             string payload = String.Format("{{" +
                                            "\"iscsi_target_extent_type\": \"{0}\", " +
@@ -369,9 +380,25 @@ namespace hypervisors
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/?format=json", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<targetGroup>>(HTTPResponse);
         }
+
+        public snapshot createSnapshot(string dataset, string name)
+        {
+            string payload = String.Format("{{\"dataset\": \"{0}\", " + 
+                                            "\"name\": \"{1}\" " +
+                                           "}}", dataset, name);
+
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/", "post", HttpStatusCode.Created, payload).text;
+            return JsonConvert.DeserializeObject<snapshot>(HTTPResponse);
+        }
+
+        public snapshot deleteSnapshot(snapshot toDelete)
+        {
+            string name = toDelete.fullname;
+            name = Uri.EscapeDataString(name);
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/" + name, "DELETE", HttpStatusCode.NoContent).text;
+            return JsonConvert.DeserializeObject<snapshot>(HTTPResponse);
+        }
     }
-
-
 
     public class targetGroup
     {
