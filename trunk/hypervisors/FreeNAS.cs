@@ -365,14 +365,15 @@ namespace hypervisors
 
         public iscsiExtent addISCSIExtent(iscsiExtent extent)
         {
-            // Chop off leading '/dev/' from path if present
+            // Chop off leading '/dev/' from path
             string extentPath = extent.iscsi_target_extent_path;
-            if (extentPath.StartsWith("/dev/") )
-                extentPath = extentPath.Substring(5);
+            if (!extentPath.StartsWith("/dev/") )
+                throw new nasAccessException();
+            extentPath = extentPath.Substring(5);
             string payload = String.Format("{{" +
                                            "\"iscsi_target_extent_type\": \"{0}\", " +
                                            "\"iscsi_target_extent_name\": \"{1}\", " +
-                                           "\"iscsi_target_extent_filesize\": \"{2}\", " +
+                                           //"\"iscsi_target_extent_filesize\": \"{2}\", " +
                                            "\"iscsi_target_extent_disk\": \"{3}\" " +
                                            "}}", "Disk", extent.iscsi_target_extent_name,
                 extent.iscsi_target_extent_filesize, extentPath);
