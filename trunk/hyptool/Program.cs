@@ -30,34 +30,34 @@ namespace hyptool
 
         private static void _Main(hyptoolargs args)
         {
-            hypervisor_iLo_HTTP hyp = new hypervisor_iLo_HTTP(args.hypIP, args.hypUsername, args.hypPassword);
-            hyp.retries = args.retries;
-            hyp.connect();
-            switch (args.action)
+            using (hypervisor_iLo_HTTP hyp = new hypervisor_iLo_HTTP(args.hypIP, args.hypUsername, args.hypPassword))
             {
-                case hypervisorAction.powerOn:
-                    hyp.powerOn();
-                    break;
-                case hypervisorAction.powerOff:
-                    hyp.powerOff();
-                    break;
-                case hypervisorAction.getPowerStatus:
-                    if (hyp.getPowerStatus())
-                        Console.WriteLine(args.numeric ? "1" : "ON");
-                    else
-                        Console.WriteLine(args.numeric ? "0" : "OFF");
-                    break;
-                case hypervisorAction.getPowerUse:
-                    Console.WriteLine(hyp.getCurrentPowerUseW());
-                    break;
-                case hypervisorAction.updateZabbix:
-                    doZabbix(args.zabbixServer.Trim(), args.zabbixHostname.Trim(), hyp);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
+                hyp.retries = args.retries;
+                hyp.connect();
+                switch (args.action)
+                {
+                    case hypervisorAction.powerOn:
+                        hyp.powerOn();
+                        break;
+                    case hypervisorAction.powerOff:
+                        hyp.powerOff();
+                        break;
+                    case hypervisorAction.getPowerStatus:
+                        if (hyp.getPowerStatus())
+                            Console.WriteLine(args.numeric ? "1" : "ON");
+                        else
+                            Console.WriteLine(args.numeric ? "0" : "OFF");
+                        break;
+                    case hypervisorAction.getPowerUse:
+                        Console.WriteLine(hyp.getCurrentPowerUseW());
+                        break;
+                    case hypervisorAction.updateZabbix:
+                        doZabbix(args.zabbixServer.Trim(), args.zabbixHostname.Trim(), hyp);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
             }
-
-            hyp.logout();
         }
 
         private static void doZabbix(string zbxServer, string ourHostname, hypervisor_iLo_HTTP hyp)
