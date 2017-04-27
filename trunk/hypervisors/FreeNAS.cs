@@ -139,10 +139,18 @@ namespace hypervisors
             doReq(url, "DELETE", HttpStatusCode.NoContent);            
         }
 
-        public void deleteZVol(volume parent, volume toDelete)
+        public void deleteZVol(volume toDelete)
         {
-            string url = String.Format("http://{0}/api/v1.0/storage/volume/{1}/zvols/{2}", _serverIp, parent.name, toDelete.name);
-            doReq(url, "DELETE", HttpStatusCode.NoContent);
+            // Oh no, the freenas API keeps returning HTTP 404 when I try to delete a volume! :( We ignore it and use the web UI
+            // instead. ;_;
+            DoNonAPIReq("", HttpStatusCode.OK);
+            string url = "account/login/";
+            string payloadStr = string.Format("username={0}&password={1}", _username, _password);
+            DoNonAPIReq(url, HttpStatusCode.OK, payloadStr);
+            // Now we can do the request to delete the snapshot.
+            string resp = DoNonAPIReq("storage/zvol/delete/" + toDelete.path + "/", HttpStatusCode.OK, "");
+            if (resp.Contains("\"error\": true") || !resp.Contains("Volume successfully destroyed"))
+                throw new Exception("Volume deletion failed: " + resp);
         }
 
         public void deleteISCSIExtent(iscsiExtent extent)
