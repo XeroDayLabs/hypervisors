@@ -367,9 +367,8 @@ namespace hypervisors
         {
             // Chop off leading '/dev/' from path
             string extentPath = extent.iscsi_target_extent_path;
-            if (!extentPath.StartsWith("/dev/") )
-                throw new nasAccessException();
-            extentPath = extentPath.Substring(5);
+            if (extentPath.StartsWith("/dev/"))
+                extentPath = extentPath.Substring(5);
             string payload = String.Format("{{" +
                                            "\"iscsi_target_extent_type\": \"{0}\", " +
                                            "\"iscsi_target_extent_name\": \"{1}\", " +
