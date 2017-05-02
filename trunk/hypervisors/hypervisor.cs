@@ -1,5 +1,7 @@
 using System;
+using System.Diagnostics;
 using System.IO;
+using Renci.SshNet;
 
 namespace hypervisors
 {
@@ -46,5 +48,24 @@ namespace hypervisors
         public string stdout;
 
         public string stderr;
+
+        public executionResult(SshCommand src)
+        {
+            stdout = src.Result;
+            stderr = src.Error;
+            resultCode = src.ExitStatus;
+        }
+
+        public executionResult()
+        {
+
+        }
+
+        public executionResult(Process src)
+        {
+            resultCode = src.ExitCode;
+            stderr = src.StandardError.ReadToEnd();
+            stdout = src.StandardOutput.ReadToEnd();
+        }
     }
 }

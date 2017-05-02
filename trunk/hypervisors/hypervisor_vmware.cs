@@ -88,7 +88,7 @@ namespace hypervisors
                 {
                     return thingtoDo.Invoke();
                 }
-                catch (VimException e)
+                catch (VimException)
                 {
                     if (maxRetries != 0)
                     {
@@ -96,7 +96,7 @@ namespace hypervisors
                             throw;
                     }
                 }
-                catch (SoapException e)
+                catch (SoapException)
                 {
                     if (maxRetries != 0)
                     {

@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
-using Tamir.SharpSsh;
-using Tamir.SharpSsh.jsch;
+using Renci.SshNet;
+using Renci.SshNet.Common;
 
 namespace hypervisors
 {
@@ -38,23 +38,18 @@ namespace hypervisors
             if (workingDir != null)
                 throw new NotSupportedException();
 
-            SshExec exec = null;
+            ConnectionInfo inf = new ConnectionInfo(_hostIp, _hostUsername, new PasswordAuthenticationMethod(_hostUsername, _hostPassword));
             try
             {
-                exec = new SshExec(_hostIp, _hostUsername, _hostPassword);
-                exec.Connect();
-
-                string returnVal = exec.RunCommand(string.Format("{0} {1}", toExecute, args));
-                return new executionResult() { stdout =  returnVal };
+                using (SshClient client = new SshClient(inf))
+                {
+                    SshCommand returnVal = client.RunCommand(string.Format("{0} {1}", toExecute, args));
+                    return new executionResult(returnVal);
+                }
             }
-            catch (JSchException)
+            catch (SshException)
             {
                 throw new hypervisorExecutionException();
-            }
-            finally
-            {
-                if (exec != null)
-                    exec.Close();
             }
         }
 

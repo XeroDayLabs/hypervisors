@@ -54,12 +54,7 @@ namespace hypervisors
             {
                 process.WaitForExit();
 
-                return new executionResult()
-                {
-                    resultCode = process.ExitCode,
-                    stderr = process.StandardError.ReadToEnd(),
-                    stdout = process.StandardOutput.ReadToEnd()
-                };
+                return new executionResult(process);
             }
         }
 

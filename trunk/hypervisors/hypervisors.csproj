@@ -37,6 +37,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>$(Solutiondir)\..\ThirdParty\json.net\Newtonsoft.Json.dll</HintPath>
     </Reference>
+    <Reference Include="Renci.SshNet">
+      <HintPath>$(Solutiondir)\..\ThirdParty\sshnet\Renci.SshNet.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Management.Automation, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
@@ -49,9 +52,6 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="Tamir.SharpSSH">
-      <HintPath>$(Solutiondir)\..\ThirdParty\sharpssh\Tamir.SharpSSH.dll</HintPath>
-    </Reference>
     <Reference Include="VimService60">
       <HintPath>$(Solutiondir)\..\ThirdParty\vmware\VimService60.dll</HintPath>
     </Reference>
