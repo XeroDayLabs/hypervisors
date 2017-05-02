@@ -38,7 +38,10 @@ namespace hypervisors
             if (workingDir != null)
                 throw new NotSupportedException();
 
-            ConnectionInfo inf = new ConnectionInfo(_hostIp, _hostUsername, new PasswordAuthenticationMethod(_hostUsername, _hostPassword));
+            KeyboardInteractiveAuthenticationMethod auth = new KeyboardInteractiveAuthenticationMethod(_hostUsername);
+            auth.AuthenticationPrompt += authCB;
+
+            ConnectionInfo inf = new ConnectionInfo(_hostIp, _hostUsername, auth);
             try
             {
                 using (SshClient client = new SshClient(inf))
@@ -52,6 +55,15 @@ namespace hypervisors
             catch (SshException)
             {
                 throw new hypervisorExecutionException();
+            }
+        }
+
+        private void authCB(object sender, AuthenticationPromptEventArgs e)
+        {
+            foreach (AuthenticationPrompt prompt in e.Prompts)
+            {
+                if (prompt.Request.IndexOf("Password:", StringComparison.InvariantCultureIgnoreCase) != -1)
+                    prompt.Response = _hostPassword;
             }
         }
 
