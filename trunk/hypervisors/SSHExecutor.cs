@@ -43,6 +43,8 @@ namespace hypervisors
             {
                 using (SshClient client = new SshClient(inf))
                 {
+                    client.Connect();
+
                     SshCommand returnVal = client.RunCommand(string.Format("{0} {1}", toExecute, args));
                     return new executionResult(returnVal);
                 }
