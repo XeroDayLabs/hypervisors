@@ -34,7 +34,7 @@ namespace hypervisors
             VClient.Login(_spec.kernelVMServerUsername, _spec.kernelVMServerPassword);
 
             List<EntityViewBase> vmlist = VClient.FindEntityViews(typeof (VirtualMachine), null, null, null);
-            _underlyingVM = (VirtualMachine) vmlist.SingleOrDefault(x => ((VirtualMachine) x).Config.Name.ToLower() == _spec.kernelVMName.ToLower());
+            _underlyingVM = (VirtualMachine) vmlist.SingleOrDefault(x => ((VirtualMachine) x).Name.ToLower() == _spec.kernelVMName.ToLower());
             if (_underlyingVM == null)
                 throw new Exception("Can't find VM named '" + _spec.kernelVMName + "'");
 
