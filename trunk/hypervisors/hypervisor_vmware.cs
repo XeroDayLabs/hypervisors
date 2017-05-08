@@ -25,6 +25,13 @@ namespace hypervisors
         /// 
         private IRemoteExecution executor;
 
+        private snapshotMethodEnum snapshotMethod = snapshotMethodEnum.vmware;
+
+        // These will be used only if snapshotMethod is set to freenas.
+        private string _freeNASIP = null;
+        private string _freeNASUsername = null;
+        private string _freeNASPassword = null;
+
         public hypervisor_vmware(hypSpec_vmware spec, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
         {
             _spec = spec;
@@ -52,16 +59,36 @@ namespace hypervisors
             }
         }
 
+        public void configureForFreeNASSnapshots(string freeNASIP, string freeNASUsername, string freeNASPassword)
+        {
+            _freeNASIP = freeNASIP;
+            _freeNASUsername = freeNASUsername;
+            _freeNASPassword = freeNASPassword;
+
+            snapshotMethod = snapshotMethodEnum.FreeNAS;
+        }
+
         public override void restoreSnapshotByName(string snapshotNameOrID)
         {
-            _underlyingVM.UpdateViewData();
+            if (snapshotMethod == snapshotMethodEnum.vmware)
+            {
+                _underlyingVM.UpdateViewData();
 
-            // Find its named snapshot
-            VirtualMachineSnapshotTree snapshot = findRecusively(_underlyingVM.Snapshot.RootSnapshotList, snapshotNameOrID);
+                // Find its named snapshot
+                VirtualMachineSnapshotTree snapshot = findRecusively(_underlyingVM.Snapshot.RootSnapshotList, snapshotNameOrID);
 
-            // and revert it.
-            VirtualMachineSnapshot shot = new VirtualMachineSnapshot(VClient, snapshot.Snapshot);
-            shot.RevertToSnapshot(_underlyingVM.MoRef, false);
+                // and revert it.
+                VirtualMachineSnapshot shot = new VirtualMachineSnapshot(VClient, snapshot.Snapshot);
+                shot.RevertToSnapshot(_underlyingVM.MoRef, false);
+            }
+            else if (snapshotMethod == snapshotMethodEnum.FreeNAS)
+            {
+                freeNASSnapshot.restoreSnapshotByNam(this, _freeNASIP, _freeNASUsername, _freeNASPassword);
+            }
+            else
+            {
+                throw new ArgumentException("snapshotMethod");
+            }
         }
 
         private VirtualMachineSnapshotTree findRecusively(VirtualMachineSnapshotTree[] parent, string snapshotNameOrID)
@@ -253,6 +280,12 @@ namespace hypervisors
         {
             return string.Format("{0}:{1}", _spec.kernelDebugIPOrHostname, _spec.kernelDebugPort);
         }
+    }
+
+    public enum snapshotMethodEnum
+    {
+        vmware, // Use VMWare's snapshotting ability
+        FreeNAS // Use our own iSCSI cold 'snapshotting' ability
     }
 
     public enum clientExecutionMethod

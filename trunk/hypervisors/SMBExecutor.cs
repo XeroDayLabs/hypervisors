@@ -96,7 +96,7 @@ namespace hypervisors
                 info.UseShellExecute = false;
                 info.WindowStyle = ProcessWindowStyle.Hidden;
 
-                Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
+                //Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
                 Process proc = Process.Start(info);
 
                 if (detach)
@@ -122,8 +122,8 @@ namespace hypervisors
                 string stdout = proc.StandardOutput.ReadToEnd();
                 string stderr = proc.StandardError.ReadToEnd();
 
-                Debug.WriteLine(stdout);
-                Debug.WriteLine(stderr);
+                //Debug.WriteLine(stdout);
+                //Debug.WriteLine(stderr);
 
                 if (detach)
                 {
@@ -131,7 +131,7 @@ namespace hypervisors
                     return 0;
                 }
 
-                Debug.WriteLine("psexec returned " + proc.ExitCode + " " + stdout + " / " + stderr);
+                //Debug.WriteLine("psexec returned " + proc.ExitCode + " " + stdout + " / " + stderr);
                 if (proc.ExitCode == 6 || proc.ExitCode == 2250)
                     throw new hypervisorExecutionException_retryable();
                 return proc.ExitCode;

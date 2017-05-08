@@ -1,5 +1,5 @@
 using System;
-using System.Threading;
+using System.Diagnostics;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 
@@ -38,10 +38,14 @@ namespace hypervisors
             if (workingDir != null)
                 throw new NotSupportedException();
 
-            KeyboardInteractiveAuthenticationMethod auth = new KeyboardInteractiveAuthenticationMethod(_hostUsername);
-            auth.AuthenticationPrompt += authCB;
+            // VMWare ESXi is configured to deny password auth but permit keyboard-interactive auth out of the box, so we support
+            // this and fallback to password auth if needed.
+            KeyboardInteractiveAuthenticationMethod interactiveAuth = new KeyboardInteractiveAuthenticationMethod(_hostUsername);
+            interactiveAuth.AuthenticationPrompt += authCB;
+            // Keyboard auth is the only supported scheme for the iLos.
+            PasswordAuthenticationMethod passwordAuth = new PasswordAuthenticationMethod(_hostUsername, _hostPassword);
 
-            ConnectionInfo inf = new ConnectionInfo(_hostIp, _hostUsername, auth);
+            ConnectionInfo inf = new ConnectionInfo(_hostIp, _hostUsername, interactiveAuth, passwordAuth);
             try
             {
                 using (SshClient client = new SshClient(inf))
