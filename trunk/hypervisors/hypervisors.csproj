@@ -71,6 +71,7 @@
     <Compile Include="hypervisor_iLo.cs" />
     <Compile Include="hypervisor_iLo_HTTP.cs" />
     <Compile Include="hypervisor_localhost.cs" />
+    <Compile Include="refCount.cs" />
     <Compile Include="SMBExecutor.cs" />
     <Compile Include="hypervisor_vmware.cs" />
     <Compile Include="hypSpec_iLo.cs" />

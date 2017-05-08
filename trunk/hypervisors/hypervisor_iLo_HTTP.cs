@@ -265,6 +265,7 @@ namespace hypervisors
             switch (pwrResp.hostpwr_state.ToUpper())
             {
                 case "ON":
+                case "RESET":
                     return true;
                 case "OFF":
                     return false;

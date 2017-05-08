@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -23,10 +24,11 @@ namespace hypervisors
         public snapshot shotToRestore;
         public iscsiExtent extent;
     }
-
+    
     public class hypervisor_iLo : hypervisorWithSpec<hypSpec_iLo>
     {
-        private hypervisor_iLo_HTTP _ilo;
+        private static Dictionary<string, refCount<hypervisor_iLo_HTTP>> _ilos = new Dictionary<string, refCount<hypervisor_iLo_HTTP>>();
+
         private IRemoteExecution _executor;
 
         private hypSpec_iLo _spec;
@@ -34,7 +36,17 @@ namespace hypervisors
         public hypervisor_iLo(hypSpec_iLo spec, clientExecutionMethod newExecMethod = clientExecutionMethod.smb)
         {
             _spec = spec;
-            _ilo = new hypervisor_iLo_HTTP(spec.iLoHostname, spec.iLoUsername, spec.iLoPassword);
+            lock (_ilos)
+            {
+                if (!_ilos.ContainsKey(spec.iLoHostname))
+                {
+                    _ilos.Add(spec.iLoHostname, new refCount<hypervisor_iLo_HTTP>(new hypervisor_iLo_HTTP(spec.iLoHostname, spec.iLoUsername, spec.iLoPassword)));
+                }
+                else
+                {
+                    _ilos[spec.iLoHostname].addRef();
+                }
+            }
             if (newExecMethod == clientExecutionMethod.smb)
                 _executor = new SMBExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
             else if (newExecMethod == clientExecutionMethod.vmwaretools)
@@ -43,14 +55,23 @@ namespace hypervisors
                 _executor = new SSHExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
         }
 
-        public override void restoreSnapshotByName(string ignored)
+        public override void restoreSnapshotByName(string snapshotNameOrID)
         {
             freeNASSnapshot.restoreSnapshotByNam(this, _spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
         }
 
         public override void connect()
         {
-            _ilo.connect();
+            refCount<hypervisor_iLo_HTTP> ilo;
+            lock (_ilos)
+            {
+                ilo = _ilos[_spec.iLoHostname];
+            }
+
+            lock (ilo)
+            {
+                ilo.tgt.connect();
+            }
         }
 
         public override void powerOn()
@@ -69,7 +90,16 @@ namespace hypervisors
                 if (getPowerStatus() == true)
                     break;
 
-                _ilo.powerOn();
+                refCount<hypervisor_iLo_HTTP> ilo;
+                lock (_ilos)
+                {
+                    ilo = _ilos[_spec.iLoHostname];
+                }
+
+                lock (ilo)
+                {
+                    ilo.tgt.powerOn();
+                }
 
                 if (DateTime.Now > connectDeadline)
                     throw new TimeoutException();
@@ -157,27 +187,51 @@ namespace hypervisors
 
         public override void powerOff()
         {
-            if (_ilo.getPowerStatus() == false)
-                return;
-
             DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
-            while (true)
+            powerOff(deadline);
+        }
+
+        public void powerOff(DateTime deadline)
+        {
+            refCount<hypervisor_iLo_HTTP> ilo;
+            lock (_ilos)
             {
-                _ilo.powerOff();
+                ilo = _ilos[_spec.iLoHostname];
+            }
 
-                if (getPowerStatus() == false)
-                    break;
+            lock (ilo)
+            {
+                if (ilo.tgt.getPowerStatus() == false)
+                    return;
 
-                Thread.Sleep(TimeSpan.FromSeconds(3));
-                if (deadline < DateTime.Now)
-                    throw new Exception("Failed to turn off machine via iLo");
+                while (true)
+                {
+                    ilo.tgt.powerOff();
+
+                    if (getPowerStatus() == false)
+                        break;
+
+                    Thread.Sleep(TimeSpan.FromSeconds(3));
+
+                    if (deadline < DateTime.Now)
+                        throw new TimeoutException("Failed to turn off machine via iLo");
+                }
             }
         }
 
 
         public override bool getPowerStatus()
         {
-            return _ilo.getPowerStatus();
+            refCount<hypervisor_iLo_HTTP> ilo;
+            lock (_ilos)
+            {
+                ilo = _ilos[_spec.iLoHostname];
+            }
+
+            lock (ilo)
+            {
+                return ilo.tgt.getPowerStatus();
+            }
         }
 
         public override string getFileFromGuest(string srcpath)
@@ -192,7 +246,7 @@ namespace hypervisors
             if (_executor == null)
                 throw new NotSupportedException();
             executionResult toRet = _executor.startExecutable(toExecute, args, workingdir);
-            Debug.WriteLine("Command " + toRet +" " + args + " result stdout " + toRet.stdout);
+            //Debug.WriteLine("Command '{0}' with args '{1}' returned {2} stdout '{3}' stderr '{4}'", toExecute, args, toRet.resultCode, toRet.stdout, toRet.stderr);
 
             return toRet;
         }
@@ -236,7 +290,17 @@ namespace hypervisors
 
         protected override void _Dispose()
         {
-            _ilo.Dispose();
+            // FIXME: oh no is it permissible to lock in the GC thread or can we deadlock?
+            refCount<hypervisor_iLo_HTTP> ilo;
+            lock (_ilos)
+            {
+                ilo = _ilos[_spec.iLoHostname];
+            }
+
+            lock (ilo)
+            {
+                ilo.tgt.Dispose();                
+            }
         }
     }
 }
