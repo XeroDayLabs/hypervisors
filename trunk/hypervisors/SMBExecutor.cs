@@ -39,7 +39,7 @@ namespace hypervisors
             // Execute via cmd.exe so we can capture stdout.
             string stdoutfilename = string.Format("C:\\users\\{0}\\hyp_stdout_{1}.txt", _username, Guid.NewGuid().ToString());
             string stderrfilename = string.Format("C:\\users\\{0}\\hyp_stderr_{1}.txt", _username, Guid.NewGuid().ToString());
-            string cmdargs = String.Format("/c {0} {1} 1> {2} 2> {3}", toExecute, args, stdoutfilename, stderrfilename);
+            string cmdargs = String.Format("/c \"{0} {1}\"1>{2} 2>{3}", toExecute, args, stdoutfilename, stderrfilename);
             executionResult toRet = new executionResult();
             toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, false); ;
 
@@ -59,16 +59,14 @@ namespace hypervisors
         public void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
         {
             // Execute via cmd.exe so we can capture stdout.
-            string cmdargs = String.Format("/c {0} {1} ", toExecute, args);
+            string cmdargs = String.Format("/c {0} \"{1}\" ", toExecute, args);
             if (stdoutfilename != null)
                 cmdargs += " 1> " + stdoutfilename;
             if (stderrfilename != null)
                 cmdargs += " 2> " + stderrfilename;
-            if (retCodeFilename != null)
-                cmdargs += " & echo %errorlevel% > " + retCodeFilename;     // FIXME: does this errorlevel need escaping?!
 
             executionResult toRet = new executionResult();
-            toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, true);
+            toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, true,retCodeFilename);
         }
 
         public void testConnectivity()
@@ -78,18 +76,28 @@ namespace hypervisors
                 throw new hypervisorExecutionException_retryable();            
         }
 
-        private int _startExecutable(string toExecute, string cmdArgs, string workingDir = null, bool detach = false)
+        private int _startExecutable(string toExecute, string cmdArgs, string workingDir = null, bool detach = false, string outputCodeFile = null)
         {
             if (workingDir == null)
-                workingDir = "C:\\";
-
-            string tempFile = Path.GetTempFileName() + ".bat";
+                workingDir = string.Format("C:\\users\\{0}\\", _username);
+            string payloadBatchfile = Path.GetTempFileName() + ".bat";
+            string launcherTempFile = Path.GetTempFileName() + ".bat";
             try
             {
-                File.WriteAllText(tempFile, toExecute + " " + cmdArgs);
+                string launcherRemotePath = workingDir + Guid.NewGuid() + "_launcher.bat";
+                string payloadRemotePath = workingDir + Guid.NewGuid() + "_payload.bat";
 
-                string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -c -u {1} -p {2} -w {4} -h \"{3}\"",
-                    _guestIP, _username, _password, tempFile, workingDir, detach ? " -d " : "", runInteractively ? " -i " : "");
+                if (outputCodeFile == null)
+                    File.WriteAllText(launcherTempFile, "call " + payloadRemotePath);
+                else
+                    File.WriteAllText(launcherTempFile, "call " + payloadRemotePath + "\r\necho %ERRORLEVEL%>" + outputCodeFile);
+                File.WriteAllText(payloadBatchfile, toExecute + " " + cmdArgs);
+
+                copyToGuest(launcherTempFile, launcherRemotePath);
+                copyToGuest(payloadBatchfile, payloadRemotePath);
+
+                string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -u {1} -p {2} -w {4} -h \"{3}\"",
+                    _guestIP, _username, _password, launcherRemotePath, workingDir, detach ? " -d " : "", runInteractively ? " -i " : "");
                 ProcessStartInfo info = new ProcessStartInfo(@"C:\ProgramData\chocolatey\bin\PsExec.exe", psExecArgs);
                 info.RedirectStandardError = true;
                 info.RedirectStandardOutput = true;
@@ -119,9 +127,8 @@ namespace hypervisors
                     proc.WaitForExit();
                 }
 
-                string stdout = proc.StandardOutput.ReadToEnd();
-                string stderr = proc.StandardError.ReadToEnd();
-
+                //string stdout = proc.StandardOutput.ReadToEnd();
+                //string stderr = proc.StandardError.ReadToEnd();
                 //Debug.WriteLine(stdout);
                 //Debug.WriteLine(stderr);
 
@@ -143,7 +150,25 @@ namespace hypervisors
                 {
                     try
                     {
-                        File.Delete(tempFile);
+                        File.Delete(payloadBatchfile);
+                        break;
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        break;
+                    }
+                    catch (Exception)
+                    {
+                        if (deadline < DateTime.Now)
+                            throw;
+                        Thread.Sleep(TimeSpan.FromSeconds(2));
+                    }
+                }
+                while (true)
+                {
+                    try
+                    {
+                        File.Delete(launcherTempFile);
                         break;
                     }
                     catch (FileNotFoundException)

@@ -131,6 +131,14 @@ namespace hypervisors
                             throw;
                     }
                 }
+                catch (TimeoutException)
+                {
+                    if (maxRetries != 0)
+                    {
+                        if (retries-- == 0)
+                            throw;
+                    }
+                }
                 catch (System.Net.WebException)
                 {
                     if (maxRetries != 0)
