@@ -85,15 +85,13 @@ namespace hypervisors
 
                 // Now we can scrape stdout and make sure the process was started correctly. 
                 string psexecStdErr = proc.StandardError.ReadToEnd();
+                if (psexecStdErr.Contains("The handle is invalid."))
+                    return null;
                 if (!psexecStdErr.Contains(" started on " + _guestIP + " with process ID "))
                     return null;
 
                 // Note that we can't check the return status here, since psexec returns a PID :/
                 return new asyncExecutionResultViaFile(this, fileSet);
-
-                // Otherwise, we can check return status, and return the result.
-                //if (proc.ExitCode == 6 || proc.ExitCode == 2250)
-                //    throw new hypervisorExecutionException_retryable();
             }
             finally
             {

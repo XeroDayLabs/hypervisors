@@ -17,9 +17,15 @@ namespace hypervisors
 
         public executionResult startExecutable(string toExecute, string args, string workingDir = null)
         {
-            IAsyncExecutionResult resultInProgress = startExecutableAsync(toExecute, args, workingDir);
-            if (resultInProgress == null)
-                throw new hypervisorExecutionException();
+            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+            IAsyncExecutionResult resultInProgress = null;
+            while (resultInProgress == null)
+            {
+                resultInProgress = startExecutableAsync(toExecute, args, workingDir);
+                if (DateTime.Now > deadline)
+                    throw new hypervisorExecutionException();
+                Thread.Sleep(3);
+            }
 
             while (true)
             {
