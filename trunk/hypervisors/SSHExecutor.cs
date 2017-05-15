@@ -5,7 +5,7 @@ using Renci.SshNet.Common;
 
 namespace hypervisors
 {
-    public class SSHExecutor : IRemoteExecution
+    public class SSHExecutor : remoteExecution
     {
         private readonly string _hostIp;
         private readonly string _hostUsername;
@@ -18,17 +18,17 @@ namespace hypervisors
             _hostPassword = hostPassword;
         }
 
-        public void mkdir(string newDir)
+        public override void mkdir(string newDir)
         {
             throw new NotImplementedException();
         }
 
-        public void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string srcpath, string dstpath)
         {
             throw new NotImplementedException();
         }
 
-        public string getFileFromGuest(string srcpath)
+        public override string getFileFromGuest(string srcpath)
         {
             throw new NotImplementedException();
         }
@@ -71,12 +71,12 @@ namespace hypervisors
             }
         }
 
-        public void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
+        public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
         {
             throw new NotImplementedException();
         }
 
-        public void testConnectivity()
+        public override void testConnectivity()
         {
             executionResult res = startExecutable("echo", "teststring");
             if (!res.stdout.Contains("teststring"))

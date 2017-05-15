@@ -58,22 +58,46 @@ namespace hypervisors
             }
         }
 
-        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
+        public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
         {
             if (workingDir == null)
                 workingDir = "C:\\";
 
-            if (stdoutfilename != null || stderrfilename != null || retCodeFilename != null)
-                throw new NotSupportedException();
-
             ProcessStartInfo ps = new ProcessStartInfo(toExecute, args);
+            ps.UseShellExecute = false;
+            ps.RedirectStandardError = true;
+            ps.RedirectStandardOutput = true;
             ps.WorkingDirectory = workingDir;
-            Process.Start(ps).Dispose();
+            Process proc = Process.Start(ps);
+            return  new asycExeuctionResult_localhost(proc);
         }
 
         public override void mkdir(string newDir)
         {
             Directory.CreateDirectory(newDir);            
+        }
+    }
+
+    public class asycExeuctionResult_localhost : IAsyncExecutionResult
+    {
+        private readonly Process _proc;
+
+        public asycExeuctionResult_localhost(Process proc)
+        {
+            _proc = proc;
+        }
+
+        public executionResult getResultIfComplete()
+        {
+            if (!_proc.HasExited)
+                return null;
+
+            return new executionResult(_proc.StandardOutput.ReadToEnd(), _proc.StandardError.ReadToEnd(), _proc.ExitCode);
+        }
+
+        public void Dispose()
+        {
+           _proc.Dispose();
         }
     }
 }

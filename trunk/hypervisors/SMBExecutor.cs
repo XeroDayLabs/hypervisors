@@ -13,7 +13,7 @@ namespace hypervisors
     /// Also, ensure that you set the required registry key on the guest before using this, otherwise you will see "the handle is invalid"
     /// errors - see the wiki.
     /// </summary>
-    public class SMBExecutor : IRemoteExecution
+    public class SMBExecutor : remoteExecution
     {
         string _guestIP;
         string _username;
@@ -34,70 +34,32 @@ namespace hypervisors
             _cred = new NetworkCredential(_username, _password);
         }
 
-        public executionResult startExecutable(string toExecute, string args, string workingDir = null)
-        {
-            // Execute via cmd.exe so we can capture stdout.
-            string stdoutfilename = string.Format("C:\\users\\{0}\\hyp_stdout_{1}.txt", _username, Guid.NewGuid().ToString());
-            string stderrfilename = string.Format("C:\\users\\{0}\\hyp_stderr_{1}.txt", _username, Guid.NewGuid().ToString());
-            string cmdargs = String.Format("/c \"{0} {1}\"1>{2} 2>{3}", toExecute, args, stdoutfilename, stderrfilename);
-            executionResult toRet = new executionResult();
-            toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, false); ;
-
-            try
-            {
-                toRet.stdout = getFileFromGuest(stdoutfilename);
-                toRet.stderr = getFileFromGuest(stderrfilename);
-            }
-            catch (FileNotFoundException)
-            {
-                throw new hypervisorExecutionException();
-            }
-
-            return toRet;
-        }
-        
-        public void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
-        {
-            // Execute via cmd.exe so we can capture stdout.
-            string cmdargs = String.Format("/c {0} \"{1}\" ", toExecute, args);
-            if (stdoutfilename != null)
-                cmdargs += " 1> " + stdoutfilename;
-            if (stderrfilename != null)
-                cmdargs += " 2> " + stderrfilename;
-
-            executionResult toRet = new executionResult();
-            toRet.resultCode = _startExecutable("cmd.exe", cmdargs, workingDir, true,retCodeFilename);
-        }
-
-        public void testConnectivity()
+        public override void testConnectivity()
         {
             executionResult res = startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo teststring");
             if (!res.stdout.Contains("teststring"))
                 throw new hypervisorExecutionException_retryable();            
         }
 
-        private int _startExecutable(string toExecute, string cmdArgs, string workingDir = null, bool detach = false, string outputCodeFile = null)
+        public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
         {
+            string tempDir = string.Format("C:\\users\\{0}\\", _username);
+
             if (workingDir == null)
-                workingDir = string.Format("C:\\users\\{0}\\", _username);
+                workingDir = tempDir;
+
+            execFileSet fileSet = base.prepareForExecution(toExecute, args, tempDir);
+
+            // We do this by creating two batch files on the target.
+            // The first contains the command we're executing, and the second simply calls the first with redirection to the files
+            // we want our output in. This simplifies escaping on the commandline via psexec.
             string payloadBatchfile = Path.GetTempFileName() + ".bat";
             string launcherTempFile = Path.GetTempFileName() + ".bat";
             try
             {
-                string launcherRemotePath = workingDir + Guid.NewGuid() + "_launcher.bat";
-                string payloadRemotePath = workingDir + Guid.NewGuid() + "_payload.bat";
-
-                if (outputCodeFile == null)
-                    File.WriteAllText(launcherTempFile, "call " + payloadRemotePath);
-                else
-                    File.WriteAllText(launcherTempFile, "call " + payloadRemotePath + "\r\necho %ERRORLEVEL%>" + outputCodeFile);
-                File.WriteAllText(payloadBatchfile, toExecute + " " + cmdArgs);
-
-                copyToGuest(launcherTempFile, launcherRemotePath);
-                copyToGuest(payloadBatchfile, payloadRemotePath);
-
+                // Now execute the launcher.bat via psexec.
                 string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -u {1} -p {2} -w {4} -h \"{3}\"",
-                    _guestIP, _username, _password, launcherRemotePath, workingDir, detach ? " -d " : "", runInteractively ? " -i " : "");
+                    _guestIP, _username, _password, fileSet.launcherPath, workingDir, "-d", runInteractively ? " -i " : "");
                 ProcessStartInfo info = new ProcessStartInfo(@"C:\ProgramData\chocolatey\bin\PsExec.exe", psExecArgs);
                 info.RedirectStandardError = true;
                 info.RedirectStandardOutput = true;
@@ -107,44 +69,35 @@ namespace hypervisors
                 //Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
                 Process proc = Process.Start(info);
 
-                if (detach)
+                // We allow psexec 65 seconds to start the process async on the host.
+                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
                 {
-                    if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
+                    try
                     {
-                        try
-                        {
-                            proc.Kill();
-                        }
-                        catch (Exception)
-                        {
-                        }
-
-                        throw new TimeoutException();
+                        proc.Kill();
                     }
-                }
-                else
-                {
-                    proc.WaitForExit();
-                }
+                    catch (Exception)
+                    {
+                    }
 
-                //string stdout = proc.StandardOutput.ReadToEnd();
-                //string stderr = proc.StandardError.ReadToEnd();
-                //Debug.WriteLine(stdout);
-                //Debug.WriteLine(stderr);
-
-                if (detach)
-                {
-                    Debug.WriteLine("Child PID is " + proc.ExitCode);
-                    return 0;
+                    throw new TimeoutException();
                 }
 
-                //Debug.WriteLine("psexec returned " + proc.ExitCode + " " + stdout + " / " + stderr);
-                if (proc.ExitCode == 6 || proc.ExitCode == 2250)
-                    throw new hypervisorExecutionException_retryable();
-                return proc.ExitCode;
+                // Now we can scrape stdout and make sure the process was started correctly. 
+                string psexecStdErr = proc.StandardError.ReadToEnd();
+                if (!psexecStdErr.Contains(" started on " + _guestIP + " with process ID "))
+                    return null;
+
+                // Note that we can't check the return status here, since psexec returns a PID :/
+                return new asyncExecutionResultViaFile(this, fileSet);
+
+                // Otherwise, we can check return status, and return the result.
+                //if (proc.ExitCode == 6 || proc.ExitCode == 2250)
+                //    throw new hypervisorExecutionException_retryable();
             }
             finally
             {
+                // And delete our temp files.
                 DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
                 while (true)
                 {
@@ -185,7 +138,7 @@ namespace hypervisors
             }
         }
 
-        public void mkdir(string newDir)
+        public override void mkdir(string newDir)
         {
             string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, newDir.Substring(2));
             int retries = 60;
@@ -215,7 +168,7 @@ namespace hypervisors
             }
         }
 
-        public void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string srcpath, string dstpath)
         {   
             if (!dstpath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
@@ -252,7 +205,7 @@ namespace hypervisors
             }
         }
 
-        public string getFileFromGuest(string srcpath)
+        public override string getFileFromGuest(string srcpath)
         {
             if (!srcpath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
@@ -299,14 +252,20 @@ namespace hypervisors
         }
     }
 
-    public interface IRemoteExecution
+    public class execFileSet
     {
-        void mkdir(string newDir);
-        void copyToGuest(string srcpath, string dstpath);
-        string getFileFromGuest(string srcpath);
-        executionResult startExecutable(string toExecute, string args, string workingDir = null);
-        void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null);
-        void testConnectivity();
+        public readonly string stdOutFilename;
+        public readonly string stdErrFilename;
+        public readonly string returnCodeFilename;
+        public readonly string launcherPath;
+
+        public execFileSet(string newstdOutFilename, string newstdErrFilename, string newreturnCodeFilename, string newLauncherPath)
+        {
+            launcherPath = newLauncherPath;
+            stdOutFilename = newstdOutFilename;
+            stdErrFilename = newstdErrFilename;
+            returnCodeFilename = newreturnCodeFilename;
+        }
     }
 
     [Serializable]

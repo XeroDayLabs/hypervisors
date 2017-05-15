@@ -23,7 +23,7 @@ namespace hypervisors
         /// </summary>
         private clientExecutionMethod _executionMethod;
         /// 
-        private IRemoteExecution executor;
+        private remoteExecution executor;
 
         private snapshotMethodEnum snapshotMethod = snapshotMethodEnum.vmware;
 
@@ -214,13 +214,13 @@ namespace hypervisors
             // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
             // particularly under load, hence the retries.
             _underlyingVM.UpdateViewData();
-            Debug.WriteLine("poweroff: old state " + _underlyingVM.Runtime.PowerState);
+//            Debug.WriteLine("poweroff: old state " + _underlyingVM.Runtime.PowerState);
             while (_underlyingVM.Runtime.PowerState != VirtualMachinePowerState.poweredOff)
             {
                 doWithRetryOnSomeExceptions(() =>
                 {
                     _underlyingVM.UpdateViewData();
-                    Debug.WriteLine("poweroff: old state " + _underlyingVM.Runtime.PowerState);
+//                    Debug.WriteLine("poweroff: old state " + _underlyingVM.Runtime.PowerState);
                     if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
                         return null;
                     _underlyingVM.PowerOffVM();
@@ -256,9 +256,9 @@ namespace hypervisors
             return executor.startExecutable(toExecute, args, workingdir);
         }
 
-        public override void startExecutableAsync(string toExecute, string args, string workingDir = null, string stdoutfilename = null, string stderrfilename = null, string returnCodeFilename = null)
+        public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
         {
-            executor.startExecutableAsync(toExecute, args, workingDir, stdoutfilename, stderrfilename, returnCodeFilename);
+            return executor.startExecutableAsync(toExecute, args, workingDir);
         }
         
         public override void mkdir(string newDir)

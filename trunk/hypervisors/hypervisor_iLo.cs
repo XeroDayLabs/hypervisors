@@ -29,7 +29,7 @@ namespace hypervisors
     {
         private static Dictionary<string, refCount<hypervisor_iLo_HTTP>> _ilos = new Dictionary<string, refCount<hypervisor_iLo_HTTP>>();
 
-        private IRemoteExecution _executor;
+        private remoteExecution _executor;
 
         private hypSpec_iLo _spec;
 
@@ -251,11 +251,11 @@ namespace hypervisors
             return toRet;
         }
 
-        public override void startExecutableAsync(string toExecute, string args, string workingdir = null, string stdoutfilename = null, string stderrfilename = null, string retCodeFilename = null)
+        public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
         {
             if (_executor == null)
                 throw new NotSupportedException();
-            _executor.startExecutableAsync(toExecute, args, workingdir, stdoutfilename, stderrfilename, retCodeFilename);
+            return _executor.startExecutableAsync(toExecute, args, workingDir);
         }
 
         public override void mkdir(string newDir)
