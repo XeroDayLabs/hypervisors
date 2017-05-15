@@ -118,7 +118,7 @@ namespace hypervisors
 
         public List<iscsiTarget> getISCSITargets()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/target/?limit=9999", "get", HttpStatusCode.OK).text;
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/target/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<iscsiTarget>>(HTTPResponse);
         }
 
@@ -130,13 +130,13 @@ namespace hypervisors
 
         public List<iscsiTargetToExtentMapping> getTargetToExtents()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targettoextent/?limit=9999", "get", HttpStatusCode.OK).text;
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targettoextent/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<iscsiTargetToExtentMapping>>(HTTPResponse);
         }
 
         public List<iscsiExtent> getExtents()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/extent/?limit=9999", "get", HttpStatusCode.OK).text;
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/extent/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<iscsiExtent>>(HTTPResponse);
         }
 
@@ -168,7 +168,7 @@ namespace hypervisors
 
         public List<volume> getVolumes()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/volume/?limit=9999", "get", HttpStatusCode.OK).text;
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/volume/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<volume>>(HTTPResponse);
         }
 
@@ -224,7 +224,7 @@ namespace hypervisors
 
         public List<snapshot> getSnapshots()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/?limit=9999", "get", HttpStatusCode.OK).text;
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<snapshot>>(HTTPResponse);
         }
 
@@ -391,7 +391,7 @@ namespace hypervisors
 
         public List<targetGroup> getTargetGroups()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/?format=json", "get", HttpStatusCode.OK).text;
+            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<targetGroup>>(HTTPResponse);
         }
 
