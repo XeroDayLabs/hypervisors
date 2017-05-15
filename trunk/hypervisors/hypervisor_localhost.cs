@@ -69,7 +69,13 @@ namespace hypervisors
             ps.RedirectStandardOutput = true;
             ps.WorkingDirectory = workingDir;
             Process proc = Process.Start(ps);
-            return  new asycExeuctionResult_localhost(proc);
+            return new asycExeuctionResult_localhost(proc);
+        }
+
+        public override IAsyncExecutionResult startExecutableAsyncWithRetry(string toExecute, string args, string workingDir = null)
+        {
+            // This can never fail anyway.
+            return startExecutableAsync(toExecute, args, workingDir);
         }
 
         public override void mkdir(string newDir)

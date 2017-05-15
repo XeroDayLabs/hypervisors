@@ -258,6 +258,11 @@ namespace hypervisors
             return _executor.startExecutableAsync(toExecute, args, workingDir);
         }
 
+        public override IAsyncExecutionResult startExecutableAsyncWithRetry(string toExecute, string args, string workingDir = null)
+        {
+            return _executor.startExecutableAsyncWithRetry(toExecute, args, workingDir);
+        }
+
         public override void mkdir(string newDir)
         {
             if (_executor == null)

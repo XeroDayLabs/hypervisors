@@ -16,6 +16,7 @@ namespace hypervisors
         public abstract string getFileFromGuest(string srcpath);
         public abstract executionResult startExecutable(string toExecute, string args, string workingdir = null);
         public abstract IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null);
+        public abstract IAsyncExecutionResult startExecutableAsyncWithRetry(string toExecute, string args, string workingDir = null);
         public abstract void mkdir(string newDir);
 
         public void Dispose()

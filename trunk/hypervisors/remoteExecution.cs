@@ -66,6 +66,14 @@ namespace hypervisors
             }
         }
 
+        public IAsyncExecutionResult startExecutableAsyncWithRetry(string toExec, string args, string workingDir)
+        {
+            IAsyncExecutionResult asyncRes = null;
+            while (asyncRes == null)
+                asyncRes = startExecutableAsync(toExec, args, workingDir);
+            return asyncRes;
+        }
+
         protected execFileSet prepareForExecution(string toExecute, string args, string tempDir)
         {
             // We do this by creating two batch files on the target.
