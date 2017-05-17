@@ -76,15 +76,12 @@ namespace hypervisors
 
         public override void powerOn()
         {
-            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(6);
             powerOn(deadline);
         }
  
         public void powerOn(DateTime connectDeadline)
         {
-            if (getPowerStatus() == true)
-                return;
-
             while (true)
             {
                 if (getPowerStatus() == true)
@@ -108,7 +105,10 @@ namespace hypervisors
             }
 
             // Wait until the host is up enough that we can ping it...
-            WaitForStatus(true, TimeSpan.FromMinutes(6));
+            TimeSpan remaining = connectDeadline - DateTime.Now;
+            if (remaining < TimeSpan.FromSeconds(0))
+                throw new TimeoutException();
+            WaitForStatus(true, remaining );
 
             // Now wait for it to be up enough that we can psexec to it.
             doWithRetryOnSomeExceptions(() =>
