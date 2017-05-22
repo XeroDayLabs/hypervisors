@@ -19,13 +19,15 @@ namespace hypervisors
         public abstract IAsyncExecutionResult startExecutableAsyncWithRetry(string toExecute, string args, string workingDir = null);
         public abstract void mkdir(string newDir);
 
-        public void Dispose()
+        protected virtual void Dispose(bool disposing)
         {
-            _Dispose();
+            
         }
 
-        protected virtual void _Dispose()
+
+        public void Dispose()
         {
+            Dispose(true);
         }
 
         public void copyDirToGuest(string src, string dest)

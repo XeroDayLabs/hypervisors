@@ -65,13 +65,13 @@ namespace hypervisors
 
             Debug.Print(".. wait complete for box " + getBaseConnectionSpec().kernelDebugIPOrHostname);
         }
-        
-        protected override void _Dispose()
+
+        protected override void Dispose(bool disposing)
         {
             if (disposalCallback != null)
                 disposalCallback.Invoke(getConnectionSpec());
 
-            base._Dispose();
+            base.Dispose(disposing);
         }
     }
 }

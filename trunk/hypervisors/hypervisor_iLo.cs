@@ -293,7 +293,7 @@ namespace hypervisors
             freeNASSnapshot.getSnapshotObjectsFromNAS(nas, _spec.snapshotName);
         }
 
-        protected override void _Dispose()
+        protected override void Dispose(bool disposing)
         {
             // FIXME: oh no is it permissible to lock in the GC thread or can we deadlock?
             refCount<hypervisor_iLo_HTTP> ilo;
@@ -306,6 +306,8 @@ namespace hypervisors
             {
                 ilo.tgt.Dispose();                
             }
+
+            base.Dispose(disposing);
         }
     }
 }
