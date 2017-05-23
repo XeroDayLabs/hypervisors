@@ -15,7 +15,7 @@ namespace hypervisors
         public abstract IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null);
         public abstract void testConnectivity();
 
-        public executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        public virtual executionResult startExecutable(string toExecute, string args, string workingDir = null)
         {
             DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
             IAsyncExecutionResult resultInProgress = null;

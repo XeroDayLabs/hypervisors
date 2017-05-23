@@ -33,7 +33,7 @@ namespace hypervisors
             throw new NotImplementedException();
         }
 
-        public executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        public new executionResult startExecutable(string toExecute, string args, string workingDir = null)
         {
             if (workingDir != null)
                 throw new NotSupportedException();
