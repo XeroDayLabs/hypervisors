@@ -33,7 +33,12 @@ namespace hypervisors
             throw new NotImplementedException();
         }
 
-        public executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        public override void deleteFile(string toDelete)
+        {
+            throw new NotImplementedException();
+        }
+
+        public new executionResult startExecutable(string toExecute, string args, string workingDir = null)
         {
             if (workingDir != null)
                 throw new NotSupportedException();

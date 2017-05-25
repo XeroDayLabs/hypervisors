@@ -166,6 +166,39 @@ namespace hypervisors
             }
         }
 
+        public override void deleteFile(string toDelete)
+        {
+            string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, toDelete.Substring(2));
+            int retries = 60;
+            while (true)
+            {
+                try
+                {
+                    using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
+                    {
+                        if (Directory.Exists(destUNC))
+                            Directory.Delete(destUNC, true);
+                        else if (File.Exists(destUNC))
+                            File.Delete(destUNC);
+                    }
+                    break;
+                }
+                catch (Win32Exception e)
+                {
+                    if (e.NativeErrorCode == 1219) // "multiple connections to a server are not allowed"
+                        throw;
+                    if (retries-- == 0)
+                        throw;
+                }
+                catch (IOException)
+                {
+                    if (retries-- == 0)
+                        throw;
+                }
+                Thread.Sleep(TimeSpan.FromSeconds(1));
+            }
+        }
+
         public override void copyToGuest(string srcpath, string dstpath)
         {   
             if (!dstpath.ToLower().StartsWith("c:"))

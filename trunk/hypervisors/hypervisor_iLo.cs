@@ -282,6 +282,13 @@ namespace hypervisors
             _executor.copyToGuest(srcpath, dstpath);
         }
 
+        public void deleteFile(string toDelete)
+        {
+            if (_executor == null)
+                throw new NotSupportedException();
+            _executor.deleteFile(toDelete);
+        }
+
         public override string ToString()
         {
             return string.Format("{0}:{1}", _spec.kernelDebugIPOrHostname, _spec.kernelDebugPort);
