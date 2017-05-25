@@ -146,7 +146,8 @@ namespace hypervisors
                 {
                     using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
                     {
-                        Directory.CreateDirectory(destUNC);
+                        if (!Directory.Exists(destUNC))
+                            Directory.CreateDirectory(destUNC);
                     }
                     break;
                 }

@@ -16,7 +16,7 @@ namespace hypervisors
         public abstract void testConnectivity();
         public abstract void deleteFile(string toDelete);
 
-        public executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        public virtual executionResult startExecutable(string toExecute, string args, string workingDir = null)
         {
             DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
             IAsyncExecutionResult resultInProgress = null;
