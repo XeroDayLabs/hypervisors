@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Web.Services.Protocols;
+using Org.Mentalis.Network;
 using VMware.Vim;
 using Action = System.Action;
 
@@ -35,6 +37,13 @@ namespace hypervisors
         public hypervisor_vmware(hypSpec_vmware spec, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
         {
             _spec = spec;
+
+            // If we can't ping the box, assume we can't connect to the API either. We do this since I can't work out how to
+            // set connection timeouts for the VMWare api.
+            Icmp pinger = new Icmp(IPAddress.Parse(spec.kernelVMServer));
+            TimeSpan res = pinger.Ping(TimeSpan.FromSeconds(3));
+            if (res == TimeSpan.MaxValue)
+                throw new WebException();
 
             VClient = new VimClientImpl();
             VClient.Connect("https://" + _spec.kernelVMServer + "/sdk");
