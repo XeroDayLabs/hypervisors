@@ -132,6 +132,10 @@ namespace hypervisors
             if (!res.stdout.Contains("teststring"))
                 throw new hypervisorExecutionException_retryable();            
         }
-    
+
+        public override void deleteFile(string toDelete)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

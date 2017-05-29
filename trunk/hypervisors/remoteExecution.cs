@@ -14,6 +14,7 @@ namespace hypervisors
         public abstract string getFileFromGuest(string srcpath);
         public abstract IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null);
         public abstract void testConnectivity();
+        public abstract void deleteFile(string toDelete);
 
         public virtual executionResult startExecutable(string toExecute, string args, string workingDir = null)
         {
@@ -146,5 +147,6 @@ namespace hypervisors
                 }
             }
         }
+
     }
 }
