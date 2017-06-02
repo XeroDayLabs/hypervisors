@@ -124,8 +124,10 @@ namespace hypervisors
                 {
                     return thingtoDo.Invoke();
                 }
-                catch (VimException)
+                catch (VimException e)
                 {
+                    if (e.Message.Contains("are insufficient for the operation"))
+                        throw;
                     if (maxRetries != 0)
                     {
                         if (retries-- == 0)

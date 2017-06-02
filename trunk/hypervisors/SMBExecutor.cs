@@ -301,7 +301,12 @@ namespace hypervisors
     }
 
     [Serializable]
-    public class hypervisorExecutionException : Exception { }
+    public class hypervisorExecutionException : Exception
+    {
+        public hypervisorExecutionException() : base() { }
+
+        public hypervisorExecutionException(string a) : base(a) { }
+    }
 
     [Serializable]
     public class hypervisorExecutionException_retryable : Exception { }
