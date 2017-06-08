@@ -40,7 +40,7 @@ namespace hypervisors
 
             // If we can't ping the box, assume we can't connect to the API either. We do this since I can't work out how to
             // set connection timeouts for the VMWare api.
-            Icmp pinger = new Icmp(IPAddress.Parse(spec.kernelVMServer));
+            Icmp pinger = new Icmp(Dns.GetHostAddresses(spec.kernelVMServer).First());
             TimeSpan res = pinger.Ping(TimeSpan.FromSeconds(3));
             if (res == TimeSpan.MaxValue)
                 throw new WebException();

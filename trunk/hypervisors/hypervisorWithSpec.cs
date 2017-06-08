@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using Org.Mentalis.Network;
@@ -45,7 +46,8 @@ namespace hypervisors
 
                 if (waitForState)
                 {
-                    Icmp pinger = new Org.Mentalis.Network.Icmp(IPAddress.Parse(getBaseConnectionSpec().kernelDebugIPOrHostname));
+                    Icmp pinger = new Icmp(Dns.GetHostAddresses(getBaseConnectionSpec().kernelDebugIPOrHostname).First());
+
                     TimeSpan res = pinger.Ping(TimeSpan.FromMilliseconds(500));
                     if (res != TimeSpan.MaxValue)
                     {
