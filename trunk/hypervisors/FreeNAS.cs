@@ -365,6 +365,13 @@ namespace hypervisors
 
         public iscsiExtent addISCSIExtent(iscsiExtent extent)
         {
+            if (String.IsNullOrEmpty(extent.iscsi_target_extent_disk))
+                extent.iscsi_target_extent_disk = extent.iscsi_target_extent_path;
+
+            // See freenas bug 11296: "type is Disk, but you need to use iscsi_target_extent_disk"
+            // ... "start it with zvol instead of dev/zvol"
+            if (extent.iscsi_target_extent_disk.StartsWith("/dev/zvol", StringComparison.CurrentCultureIgnoreCase))
+                extent.iscsi_target_extent_disk = extent.iscsi_target_extent_disk.Substring(5);
             string payload = String.Format("{{" +
                                            "\"iscsi_target_extent_type\": \"{0}\", " +
                                            "\"iscsi_target_extent_name\": \"{1}\", " +
