@@ -74,7 +74,7 @@ namespace hypervisors
 
         public override IAsyncExecutionResult startExecutableAsyncWithRetry(string toExecute, string args, string workingDir = null)
         {
-            // This can never fail anyway.
+            // startExecutableAsync in this class can never fail anyway.
             return startExecutableAsync(toExecute, args, workingDir);
         }
 
