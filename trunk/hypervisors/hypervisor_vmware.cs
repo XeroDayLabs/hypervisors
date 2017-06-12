@@ -92,7 +92,7 @@ namespace hypervisors
             }
             else if (snapshotMethod == snapshotMethodEnum.FreeNAS)
             {
-                freeNASSnapshot.restoreSnapshotByNam(this, _freeNASIP, _freeNASUsername, _freeNASPassword);
+                freeNASSnapshot.restoreSnapshot(this,_freeNASIP, _freeNASUsername, _freeNASPassword);
             }
             else
             {

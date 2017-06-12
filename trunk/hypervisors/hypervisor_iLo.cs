@@ -57,7 +57,7 @@ namespace hypervisors
 
         public override void restoreSnapshotByName()
         {
-            freeNASSnapshot.restoreSnapshotByNam(this, _spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
+            freeNASSnapshot.restoreSnapshot(this, _spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
         }
 
         public override void connect()
@@ -297,7 +297,7 @@ namespace hypervisors
         public void checkSnapshotSanity()
         {
             FreeNAS nas = new FreeNAS(_spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
-            freeNASSnapshot.getSnapshotObjectsFromNAS(nas, _spec.snapshotFriendlyName);
+            freeNASSnapshot.getSnapshotObjectsFromNAS(nas, _spec.snapshotFullName);
         }
 
         protected override void Dispose(bool disposing)

@@ -5,12 +5,13 @@ namespace hypervisors
     [Serializable]
     public class hypSpec_withWindbgKernel
     {
-        public hypSpec_withWindbgKernel(string IPOrHostname, string snapshotName, ushort port, string key)
+        public hypSpec_withWindbgKernel(string IPOrHostname, string snapshotName, string newSnapshotFullName, ushort port, string key)
         {
             kernelDebugIPOrHostname = IPOrHostname;
             kernelDebugPort = port;
             kernelDebugKey = key;
             snapshotFriendlyName = snapshotName;
+            snapshotFullName = newSnapshotFullName;
         }
 
         /// <summary>
@@ -33,5 +34,10 @@ namespace hypervisors
         /// </summary>
         public string snapshotFriendlyName;
 
+        /// <summary>
+        /// The name of the snapshot on the NAS box, eg, "172.17.1.1-172.16.1.1-clean".
+        /// Used only with FreeNAS-based snapshotting.
+        /// </summary>
+        public string snapshotFullName;
     }
 }

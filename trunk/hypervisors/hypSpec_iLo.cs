@@ -10,7 +10,7 @@ namespace hypervisors
             string iloHostname, string iLoUsername, string iloPassword,
             string iscsiServerIP, string iscsiServerUsername, string iscsiServerPassword, 
             string snapshotName, string snapshotPath, UInt16 hostKernelDebugPort, string hostKernelDebugKey)
-            : base(hostIP, snapshotName, hostKernelDebugPort, hostKernelDebugKey)
+            : base(hostIP, snapshotName, snapshotPath, hostKernelDebugPort, hostKernelDebugKey)
         {
             this.hostUsername = hostUsername;
             this.hostPassword = hostPassword;
@@ -30,10 +30,5 @@ namespace hypervisors
         public string iscsiserverIP;
         public string iscsiServerUsername;
         public string iscsiServerPassword;
-    
-        /// <summary>
-        /// The name of the snapshot on the NAS box, eg, "172.17.1.1-172.16.1.1-clean"
-        /// </summary>
-        public string snapshotFullName;
     }
 }

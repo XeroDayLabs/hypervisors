@@ -7,15 +7,14 @@ namespace hypervisors
 {
     public static class freeNASSnapshot
     {
-        public static void restoreSnapshotByNam<T>(hypervisorWithSpec<T> hyp, string freeNASIP, string freeNASUsername, string freeNASPassword)
+        public static void restoreSnapshot<T>(hypervisorWithSpec<T> hyp, string freeNASIP, string freeNASUsername, string freeNASPassword)
         {
             hypSpec_withWindbgKernel _spec = hyp.getBaseConnectionSpec();
-            string fullName = _spec.snapshotFriendlyName;
 
             FreeNAS nas = new FreeNAS(freeNASIP, freeNASUsername, freeNASPassword);
 
             // Find the device snapshot, so we can get information about it needed to get the ISCSI volume
-            snapshotObjects shotObjects = getSnapshotObjectsFromNAS(nas, fullName);
+            snapshotObjects shotObjects = getSnapshotObjectsFromNAS(nas, _spec.snapshotFullName);
 
             // Here we power the server down, tell the iSCSI server to use the right image, and power it back up again.
             hyp.powerOff();
@@ -53,19 +52,19 @@ namespace hypervisors
             }
         }
 
-        public static snapshotObjects getSnapshotObjectsFromNAS(FreeNAS nas, string fullName)
+        public static snapshotObjects getSnapshotObjectsFromNAS(FreeNAS nas, string snapshotFullName)
         {
             List<snapshot> snapshots = nas.getSnapshots();
             snapshot shotToRestore = snapshots.SingleOrDefault(
-                x => x.filesystem.ToLower().EndsWith(fullName.ToLower()) || x.id == fullName);
+                x => x.name.Equals(snapshotFullName, StringComparison.CurrentCultureIgnoreCase) || x.id == snapshotFullName);
             if (shotToRestore == null)
-                throw new Exception("Cannot find snapshot " + fullName);
+                throw new Exception("Cannot find snapshot " + snapshotFullName);
 
             // Now find the extent. We'll need to delete it before we can rollback the snapshot.
             List<iscsiExtent> extents = nas.getExtents();
-            iscsiExtent extent = extents.SingleOrDefault(x => fullName.Equals(x.iscsi_target_extent_name, StringComparison.CurrentCultureIgnoreCase));
+            iscsiExtent extent = extents.SingleOrDefault(x => snapshotFullName.Equals(x.iscsi_target_extent_name, StringComparison.CurrentCultureIgnoreCase));
             if (extent == null)
-                throw new Exception("Cannot find extent " + fullName);
+                throw new Exception("Cannot find extent " + snapshotFullName);
 
             // Find the 'target to extent' mapping, since this will need to be deleted before we can delete the extent.
             List<iscsiTargetToExtentMapping> tgtToExtents = nas.getTargetToExtents();
