@@ -56,7 +56,8 @@ namespace hypervisors
         public static snapshotObjects getSnapshotObjectsFromNAS(FreeNAS nas, string fullName)
         {
             var snapshots = nas.getSnapshots();
-            snapshot shotToRestore = snapshots.SingleOrDefault(x => x.name.Equals(fullName, StringComparison.CurrentCultureIgnoreCase) || x.id == fullName);
+            snapshot shotToRestore = snapshots.SingleOrDefault(
+                x => x.filesystem.ToLower().EndsWith(fullName.ToLower()) || x.id == fullName);
             if (shotToRestore == null)
                 throw new Exception("Cannot find snapshot " + fullName);
 
