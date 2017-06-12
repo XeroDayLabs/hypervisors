@@ -369,7 +369,7 @@ namespace hypervisors
                                            "\"iscsi_target_extent_type\": \"{0}\", " +
                                            "\"iscsi_target_extent_name\": \"{1}\", " +
                                            "\"iscsi_target_extent_disk\": \"{2}\" " +
-                                           "}}", "Disk", extent.iscsi_target_extent_name, extent.iscsi_target_extent_path);
+                                           "}}", "Disk", extent.iscsi_target_extent_name, extent.iscsi_target_extent_disk);
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/extent/", "POST", HttpStatusCode.Created, payload).text;
             iscsiExtent created = JsonConvert.DeserializeObject<iscsiExtent>(HTTPResponse);
 
@@ -579,6 +579,9 @@ namespace hypervisors
 
         [JsonProperty("iscsi_target_extent_path")]
         public string iscsi_target_extent_path { get; set; }
+
+        [JsonProperty("iscsi_target_extent_disk")]
+        public string iscsi_target_extent_disk { get; set; }
 
         [JsonProperty("iscsi_target_extent_pblocksize")]
         public string iscsi_target_extent_pblocksize { get; set; }
