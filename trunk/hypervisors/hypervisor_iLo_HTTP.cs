@@ -266,6 +266,7 @@ namespace hypervisors
             {
                 case "ON":
                 case "RESET":
+                    // Machine is coming up 
                     return true;
                 case "OFF":
                     return false;

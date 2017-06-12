@@ -365,17 +365,11 @@ namespace hypervisors
 
         public iscsiExtent addISCSIExtent(iscsiExtent extent)
         {
-            // Chop off leading '/dev/' from path
-            string extentPath = extent.iscsi_target_extent_path;
-            if (extentPath.StartsWith("/dev/"))
-                extentPath = extentPath.Substring(5);
             string payload = String.Format("{{" +
                                            "\"iscsi_target_extent_type\": \"{0}\", " +
                                            "\"iscsi_target_extent_name\": \"{1}\", " +
-                                           //"\"iscsi_target_extent_filesize\": \"{2}\", " +
-                                           "\"iscsi_target_extent_disk\": \"{3}\" " +
-                                           "}}", "Disk", extent.iscsi_target_extent_name,
-                extent.iscsi_target_extent_filesize, extentPath);
+                                           "\"iscsi_target_extent_disk\": \"{2}\" " +
+                                           "}}", "Disk", extent.iscsi_target_extent_name, extent.iscsi_target_extent_path);
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/extent/", "POST", HttpStatusCode.Created, payload).text;
             iscsiExtent created = JsonConvert.DeserializeObject<iscsiExtent>(HTTPResponse);
 
