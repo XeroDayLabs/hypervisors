@@ -55,7 +55,7 @@ namespace hypervisors
                 _executor = new SSHExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
         }
 
-        public override void restoreSnapshotByName(string snapshotNameOrID)
+        public override void restoreSnapshotByName()
         {
             freeNASSnapshot.restoreSnapshotByNam(this, _spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
         }
@@ -297,7 +297,7 @@ namespace hypervisors
         public void checkSnapshotSanity()
         {
             FreeNAS nas = new FreeNAS(_spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
-            freeNASSnapshot.getSnapshotObjectsFromNAS(nas, _spec.snapshotName);
+            freeNASSnapshot.getSnapshotObjectsFromNAS(nas, _spec.snapshotFriendlyName);
         }
 
         protected override void Dispose(bool disposing)

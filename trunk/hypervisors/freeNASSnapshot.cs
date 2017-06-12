@@ -10,7 +10,7 @@ namespace hypervisors
         public static void restoreSnapshotByNam<T>(hypervisorWithSpec<T> hyp, string freeNASIP, string freeNASUsername, string freeNASPassword)
         {
             hypSpec_withWindbgKernel _spec = hyp.getBaseConnectionSpec();
-            string fullName = _spec.snapshotName;
+            string fullName = _spec.snapshotFriendlyName;
 
             FreeNAS nas = new FreeNAS(freeNASIP, freeNASUsername, freeNASPassword);
 
@@ -55,7 +55,7 @@ namespace hypervisors
 
         public static snapshotObjects getSnapshotObjectsFromNAS(FreeNAS nas, string fullName)
         {
-            var snapshots = nas.getSnapshots();
+            List<snapshot> snapshots = nas.getSnapshots();
             snapshot shotToRestore = snapshots.SingleOrDefault(
                 x => x.filesystem.ToLower().EndsWith(fullName.ToLower()) || x.id == fullName);
             if (shotToRestore == null)
@@ -67,7 +67,7 @@ namespace hypervisors
             if (extent == null)
                 throw new Exception("Cannot find extent " + fullName);
 
-            // Find the 'target to extent' mapping, since this will need to be depeted before we can delete the extent.
+            // Find the 'target to extent' mapping, since this will need to be deleted before we can delete the extent.
             List<iscsiTargetToExtentMapping> tgtToExtents = nas.getTargetToExtents();
             iscsiTargetToExtentMapping tgtToExtent = tgtToExtents.SingleOrDefault(x => x.iscsi_extent == extent.id);
             if (tgtToExtent == null)

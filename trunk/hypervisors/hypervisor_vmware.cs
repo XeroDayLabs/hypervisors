@@ -77,14 +77,14 @@ namespace hypervisors
             snapshotMethod = snapshotMethodEnum.FreeNAS;
         }
 
-        public override void restoreSnapshotByName(string snapshotNameOrID)
+        public override void restoreSnapshotByName()
         {
             if (snapshotMethod == snapshotMethodEnum.vmware)
             {
                 _underlyingVM.UpdateViewData();
 
                 // Find its named snapshot
-                VirtualMachineSnapshotTree snapshot = findRecusively(_underlyingVM.Snapshot.RootSnapshotList, snapshotNameOrID);
+                VirtualMachineSnapshotTree snapshot = findRecusively(_underlyingVM.Snapshot.RootSnapshotList, _spec.snapshotFriendlyName);
 
                 // and revert it.
                 VirtualMachineSnapshot shot = new VirtualMachineSnapshot(VClient, snapshot.Snapshot);

@@ -8,7 +8,7 @@ namespace hypervisors
 {
     public abstract class hypervisor : IDisposable
     {
-        public abstract void restoreSnapshotByName(string snapshotNameOrID);
+        public abstract void restoreSnapshotByName();
         public abstract void connect();
         public abstract void powerOn();
         public abstract void powerOff();

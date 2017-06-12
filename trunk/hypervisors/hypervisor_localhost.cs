@@ -6,7 +6,7 @@ namespace hypervisors
 {
     public class hypervisor_localhost : hypervisor
     {
-        public override void restoreSnapshotByName(string snapshotNameOrID)
+        public override void restoreSnapshotByName()
         {
             throw new NotImplementedException();
         }
