@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading;
 
@@ -60,7 +62,7 @@ namespace hypervisors
                 // Now execute the launcher.bat via psexec.
                 string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -u {1} -p {2} -w {4} -h \"{3}\"",
                     _guestIP, _username, _password, fileSet.launcherPath, workingDir, "-d", runInteractively ? " -i " : "");
-                ProcessStartInfo info = new ProcessStartInfo(@"C:\ProgramData\chocolatey\bin\PsExec.exe", psExecArgs);
+                ProcessStartInfo info = new ProcessStartInfo(findPsexecPath(), psExecArgs);
                 info.RedirectStandardError = true;
                 info.RedirectStandardOutput = true;
                 info.UseShellExecute = false;
@@ -134,6 +136,27 @@ namespace hypervisors
                     }
                 }
             }
+        }
+
+        private string findPsexecPath()
+        {
+            // Search the system PATH, and also these two hardcoded locations.
+            List<string> candidates = new List<string>();
+            candidates.AddRange(Environment.GetEnvironmentVariable("PATH").Split(';')); // Check it out, an old-school injection here! Can you spot it?
+            candidates.AddRange(new string[]
+                {
+                    // Chocolatey installs to this path by default, but also installs the 64-bit version by default.
+                    @"C:\ProgramData\chocolatey\bin\PsExec.exe",
+                    @"C:\ProgramData\chocolatey\bin\PsExec64.exe"
+                }
+            );
+            foreach (string candidatePath in candidates)
+            {
+                if (File.Exists(candidatePath))
+                    return candidatePath;
+            }
+
+            throw new Exception("PSExec not found. Put it in your system PATH or install via chocolatey ('choco install sysinternals').");
         }
 
         public override void mkdir(string newDir)
