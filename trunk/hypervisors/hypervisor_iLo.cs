@@ -74,8 +74,11 @@ namespace hypervisors
             }
         }
 
-        public override void powerOn(DateTime connectDeadline)
+        public override void powerOn(DateTime connectDeadline = default(DateTime))
         {
+            if (connectDeadline == default(DateTime))
+                connectDeadline = DateTime.Now + TimeSpan.FromMinutes(3);
+
             while (true)
             {
                 if (getPowerStatus() == true)
@@ -112,8 +115,11 @@ namespace hypervisors
             });
         }
 
-        public override void powerOff(DateTime deadline)
+        public override void powerOff(DateTime deadline = default(DateTime))
         {
+            if (deadline == default(DateTime))
+                deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+
             refCount<hypervisor_iLo_HTTP> ilo;
             lock (_ilos)
             {
