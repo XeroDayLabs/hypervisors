@@ -56,7 +56,7 @@ namespace hypervisors
         {
             List<snapshot> snapshots = nas.getSnapshots();
             snapshot shotToRestore = snapshots.SingleOrDefault(
-                x => x.name.Equals(snapshotFullName, StringComparison.CurrentCultureIgnoreCase) || x.id == snapshotFullName);
+                x => x.fullname.ToLower().Contains( "/" + snapshotFullName.ToLower() + "@") || x.id == snapshotFullName);
             if (shotToRestore == null)
                 throw new Exception("Cannot find snapshot " + snapshotFullName);
 
