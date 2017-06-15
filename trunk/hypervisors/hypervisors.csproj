@@ -64,7 +64,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Class1.cs" />
-    <Compile Include="FreeNAS.cs" />
+    <Compile Include="mockedNAS.cs" />
+    <Compile Include="NASAccess.cs" />
     <Compile Include="freeNASSnapshot.cs" />
     <Compile Include="hypervisor.cs" />
     <Compile Include="hypervisorWithSpec.cs" />

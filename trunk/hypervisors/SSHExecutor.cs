@@ -38,10 +38,12 @@ namespace hypervisors
             throw new NotImplementedException();
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        public override executionResult startExecutable(string toExecute, string args, string workingDir = null, TimeSpan timeout = default(TimeSpan))
         {
             if (workingDir != null)
                 throw new NotSupportedException();
+
+            // TODO: timeouts aren't supported here, they're just ignored.
 
             // VMWare ESXi is configured to deny password auth but permit keyboard-interactive auth out of the box, so we support
             // this and fallback to password auth if needed.
@@ -56,8 +58,11 @@ namespace hypervisors
                 using (SshClient client = new SshClient(inf))
                 {
                     client.Connect();
-
+                    
                     SshCommand returnVal = client.RunCommand(string.Format("{0} {1}", toExecute, args));
+
+                    Debug.WriteLine("{0} : Command '{1}' args '{2}' retcode {3} stdout {4} stderr {5}", _hostIp, toExecute, args, returnVal.ExitStatus, returnVal.Result, returnVal.Error);
+                    
                     return new executionResult(returnVal);
                 }
             }

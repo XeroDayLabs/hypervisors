@@ -32,12 +32,53 @@ namespace hypervisors
         public nasConflictException(string s) : base(s) { }
     }
 
-    public class FreeNAS
+    public abstract class NASAccess
+    {
+        public abstract iscsiTargetToExtentMapping addISCSITargetToExtent(int iscsiTarget, iscsiExtent newExtent);
+        public abstract void deleteISCSITargetToExtent(iscsiTargetToExtentMapping tgtToExtent);
+        public abstract List<iscsiTargetToExtentMapping> getTargetToExtents();
+
+        public abstract iscsiExtent addISCSIExtent(iscsiExtent extent);
+        public abstract void deleteISCSIExtent(iscsiExtent extent);
+        public abstract List<iscsiExtent> getExtents();
+
+        public abstract void rollbackSnapshot(snapshot shotToRestore);
+
+        public abstract List<iscsiTarget> getISCSITargets();
+        public abstract void deleteISCSITarget(iscsiTarget tgt);
+
+        public abstract List<snapshot> getSnapshots();
+        public abstract snapshot deleteSnapshot(snapshot toDelete);
+        public abstract snapshot createSnapshot(string dataset, string snapshotName);
+        public abstract void cloneSnapshot(snapshot toClone, string fullCloneName);
+
+        public abstract List<volume> getVolumes();
+        public abstract volume findVolumeByName(List<volume> volumes, string cloneName);
+        public abstract volume findVolumeByMountpoint(List<volume> vols, string mountpoint);
+        public abstract volume findParentVolume(List<volume> vols, volume volToFind);
+
+        public abstract void deleteZVol(volume vol);
+
+        public abstract List<targetGroup> getTargetGroups();
+        public abstract iscsiTarget addISCSITarget(iscsiTarget toAdd);
+        public abstract targetGroup addTargetGroup(targetGroup tgtGrp, iscsiTarget newTarget);
+
+        public abstract List<iscsiPortal> getPortals();
+    }
+
+    public class FreeNAS : NASAccess
     {
         private readonly string _serverIp;
         private readonly string _username;
         private readonly string _password;
         private readonly CookieContainer cookies = new CookieContainer();
+
+        public FreeNAS(hypSpec_iLo hyp)
+        {
+            _serverIp = hyp.iscsiserverIP;
+            _username = hyp.iscsiServerUsername;
+            _password = hyp.iscsiServerPassword;
+        }
 
         public FreeNAS(string serverIP, string username, string password)
         {
@@ -116,37 +157,37 @@ namespace hypervisors
             }
         }
 
-        public List<iscsiTarget> getISCSITargets()
+        public override List<iscsiTarget> getISCSITargets()
         {
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/target/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<iscsiTarget>>(HTTPResponse);
         }
 
-        public void deleteISCSITarget(iscsiTarget target)
+        public override void deleteISCSITarget(iscsiTarget target)
         {
             string url = String.Format("http://{0}/api/v1.0/services/iscsi/target/{1}", _serverIp, target.id);
             doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
 
-        public List<iscsiTargetToExtentMapping> getTargetToExtents()
+        public override List<iscsiTargetToExtentMapping> getTargetToExtents()
         {
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targettoextent/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<iscsiTargetToExtentMapping>>(HTTPResponse);
         }
 
-        public List<iscsiExtent> getExtents()
+        public override List<iscsiExtent> getExtents()
         {
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/extent/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<iscsiExtent>>(HTTPResponse);
         }
 
-        public void deleteISCSITargetToExtent(iscsiTargetToExtentMapping tgtToExtent)
+        public override void deleteISCSITargetToExtent(iscsiTargetToExtentMapping tgtToExtent)
         {
             string url = String.Format("http://{0}/api/v1.0/services/iscsi/targettoextent/{1}", _serverIp, tgtToExtent.id);
             doReq(url, "DELETE", HttpStatusCode.NoContent);            
         }
 
-        public void deleteZVol(volume toDelete)
+        public override void deleteZVol(volume toDelete)
         {
             // Oh no, the freenas API keeps returning HTTP 404 when I try to delete a volume! :( We ignore it and use the web UI
             // instead. ;_;
@@ -160,26 +201,26 @@ namespace hypervisors
                 throw new nasAccessException("Volume deletion failed: " + resp);
         }
 
-        public void deleteISCSIExtent(iscsiExtent extent)
+        public override void deleteISCSIExtent(iscsiExtent extent)
         {
             string url = String.Format("http://{0}/api/v1.0/services/iscsi/extent/{1}", _serverIp, extent.id);
             doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
 
-        public List<volume> getVolumes()
+        public override List<volume> getVolumes()
         {
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/volume/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<volume>>(HTTPResponse);
         }
 
-        public void cloneSnapshot(snapshot snapshot, string path)
+        public override void cloneSnapshot(snapshot snapshot, string path)
         {
             string url = String.Format("http://{0}/api/v1.0/storage/snapshot/{1}/clone/", _serverIp, snapshot.fullname);
             string payload = String.Format("{{\"name\": \"{0}\" }}", path);
             doReq(url, "POST", HttpStatusCode.Accepted, payload);
         }
 
-        public volume findVolumeByMountpoint(List<volume> vols, string mountpoint)
+        public override volume findVolumeByMountpoint(List<volume> vols, string mountpoint)
         {
             if (vols == null)
                 return null;
@@ -200,7 +241,7 @@ namespace hypervisors
             return null;
         }
 
-        public volume findVolumeByName(List<volume> vols, string name)
+        public override volume findVolumeByName(List<volume> vols, string name)
         {
             if (vols == null)
                 return null;
@@ -222,13 +263,13 @@ namespace hypervisors
             return null;
         }
 
-        public List<snapshot> getSnapshots()
+        public override List<snapshot> getSnapshots()
         {
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<snapshot>>(HTTPResponse);
         }
 
-        public void rollbackSnapshot(snapshot shotToRestore) //, volume parentVolume, volume clone)
+        public override void rollbackSnapshot(snapshot shotToRestore) //, volume parentVolume, volume clone)
         {
             // Oh no, FreeNAS doesn't export the 'rollback' command via the API! :( We need to log into the web UI and faff with 
             // that in order to rollback instead.
@@ -307,7 +348,7 @@ namespace hypervisors
             }
         }
 
-        public iscsiTarget addISCSITarget(iscsiTarget toAdd)
+        public override iscsiTarget addISCSITarget(iscsiTarget toAdd)
         {
             string payload = String.Format("{{\"iscsi_target_name\": \"{0}\", " +
                                            "\"iscsi_target_alias\": \"{1}\" " +
@@ -318,7 +359,7 @@ namespace hypervisors
             return created;
         }
 
-        public iscsiTargetToExtentMapping addISCSITargetToExtent(int targetID, iscsiExtent extent)
+        public override iscsiTargetToExtentMapping addISCSITargetToExtent(int targetID, iscsiExtent extent)
         {
             string payload = String.Format("{{" +
                                            "\"iscsi_target\": \"{0}\", " +
@@ -331,7 +372,7 @@ namespace hypervisors
             return created;
         }
 
-        public targetGroup addTargetGroup(targetGroup toAdd, iscsiTarget target)
+        public override targetGroup addTargetGroup(targetGroup toAdd, iscsiTarget target)
         {
             string payload = String.Format("{{\"iscsi_target\": \"{0}\", " +
                                            "\"iscsi_target_authgroup\": \"{1}\", " +
@@ -348,7 +389,7 @@ namespace hypervisors
             return created;
         }
 
-        public volume findParentVolume(List<volume> vols, volume volToFind)
+        public override volume findParentVolume(List<volume> vols, volume volToFind)
         {
             volume toRet = vols.SingleOrDefault(x => x.children.Count(y => y.name == volToFind.name && x.volType == "dataset" ) > 0);
             if (toRet != null)
@@ -363,7 +404,7 @@ namespace hypervisors
             return null;
         }
 
-        public iscsiExtent addISCSIExtent(iscsiExtent extent)
+        public override iscsiExtent addISCSIExtent(iscsiExtent extent)
         {
             string payload = String.Format("{{" +
                                            "\"iscsi_target_extent_type\": \"{0}\", " +
@@ -377,19 +418,19 @@ namespace hypervisors
             
         }
 
-        public List<iscsiPortal> getPortals()
+        public override List<iscsiPortal> getPortals()
         {
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/portal/?format=json", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<iscsiPortal>>(HTTPResponse);
         }
 
-        public List<targetGroup> getTargetGroups()
+        public override List<targetGroup> getTargetGroups()
         {
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/?limit=99999", "get", HttpStatusCode.OK).text;
             return JsonConvert.DeserializeObject<List<targetGroup>>(HTTPResponse);
         }
 
-        public snapshot createSnapshot(string dataset, string name)
+        public override snapshot createSnapshot(string dataset, string name)
         {
             string payload = String.Format("{{\"dataset\": \"{0}\", " + 
                                             "\"name\": \"{1}\" " +
@@ -399,7 +440,7 @@ namespace hypervisors
             return JsonConvert.DeserializeObject<snapshot>(HTTPResponse);
         }
 
-        public snapshot deleteSnapshot(snapshot toDelete)
+        public override snapshot deleteSnapshot(snapshot toDelete)
         {
             string name = toDelete.fullname;
             name = Uri.EscapeDataString(name);

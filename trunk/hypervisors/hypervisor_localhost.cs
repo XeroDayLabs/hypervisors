@@ -6,7 +6,7 @@ namespace hypervisors
 {
     public class hypervisor_localhost : hypervisor
     {
-        public override void restoreSnapshotByName()
+        public override void restoreSnapshot()
         {
             throw new NotImplementedException();
         }
@@ -15,32 +15,32 @@ namespace hypervisors
         {
         }
         
-        public override void powerOn()
+        public override void powerOn(DateTime deadline)
         {
 
         }
 
-        public override void powerOff()
+        public override void powerOff(DateTime deadline)
         {
 
         }
 
-        public override void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string dstpath, string srcpath)
         {
             if (dstpath.EndsWith("\\"))
-                dstpath += Path.GetFileName(srcpath);
+                dstpath += Path.GetFileName(dstpath);
             if (File.Exists(dstpath))
                 return;
 
-            File.Copy(srcpath, dstpath);
+            File.Copy(dstpath, srcpath);
         }
 
-        public override string getFileFromGuest(string srcpath)
+        public override string getFileFromGuest(string srcpath, TimeSpan timeout = default(TimeSpan))
         {
             return File.ReadAllText(srcpath);
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        public override executionResult startExecutable(string toExecute, string args, string workingDir = null, DateTime deadline = new DateTime())
         {
             if (workingDir == null)
                 workingDir = "C:\\";
@@ -52,7 +52,9 @@ namespace hypervisors
             ps.WorkingDirectory = workingDir;
             using (Process process = Process.Start(ps))
             {
-                process.WaitForExit();
+                TimeSpan timeout = DateTime.Now - deadline;
+                if (!process.WaitForExit((int) timeout.TotalMilliseconds))
+                    throw new TimeoutException();
 
                 return new executionResult(process);
             }

@@ -16,9 +16,19 @@ namespace hypervisors
         public abstract void testConnectivity();
         public abstract void deleteFile(string toDelete);
 
-        public virtual executionResult startExecutable(string toExecute, string args, string workingDir = null)
+        public executionResult startExecutable(string toExecute, string args, string workingDir, DateTime deadline)
         {
-            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+            return startExecutable(toExecute, args, workingDir, DateTime.Now - deadline);
+        }
+
+        public virtual executionResult startExecutable(string toExecute, string args, string workingDir = null, TimeSpan timeout = default(TimeSpan))
+        {
+            DateTime deadline;
+            if (timeout == default(TimeSpan))
+                deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+            else
+                deadline = DateTime.Now + timeout;
+
             IAsyncExecutionResult resultInProgress = null;
             while (resultInProgress == null)
             {
@@ -39,18 +49,11 @@ namespace hypervisors
 
         public void withRetryUntilSuccess(Action action)
         {
-            while (true)
+            withRetryUntilSuccess<int>(() =>
             {
-                try
-                {
-                    action();
-                    return;
-                }
-                catch (Win32Exception) { }
-                catch (TimeoutException) { }
-                catch (VimException) { }
-                Thread.Sleep(TimeSpan.FromSeconds(3));
-            }
+                action.Invoke();
+                return 0;
+            });
         }
 
         public T withRetryUntilSuccess<T>(Func<T> action)

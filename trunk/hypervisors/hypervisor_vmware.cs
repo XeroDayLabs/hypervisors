@@ -12,29 +12,35 @@ using Action = System.Action;
 
 namespace hypervisors
 {
-    public class hypervisor_vmware : hypervisorWithSpec<hypSpec_vmware>
+    public abstract class hypervisor_vmware_withoutSnapshots : hypervisorWithSpec<hypSpec_vmware>
     {
-        private readonly hypSpec_vmware _spec;
+        /// <summary>
+        /// Thje specification of this server - IP addresses, etc
+        /// </summary>
+        protected readonly hypSpec_vmware _spec;
 
-        private VimClientImpl VClient;
-        private VirtualMachine _underlyingVM;
+        /// <summary>
+        /// Our connection to the VMWare server
+        /// </summary>
+        protected VimClientImpl VClient;
+
+        /// <summary>
+        /// The VMWare-exposed VM object
+        /// </summary>
+        protected VirtualMachine _underlyingVM;
 
         /// <summary>
         /// This can be used to select if executions will be performed via VMWare tools, or via psexec. Make sure that you take
         /// the neccessary steps for configuring SMB on the client machine, if you're going to use it.
         /// </summary>
         private clientExecutionMethod _executionMethod;
-        /// 
+        
+        /// <summary>
+        /// The object that handles starting/stopping commands on the target, and also transferring files
+        /// </summary>
         private remoteExecution executor;
 
-        private snapshotMethodEnum snapshotMethod = snapshotMethodEnum.vmware;
-
-        // These will be used only if snapshotMethod is set to freenas.
-        private string _freeNASIP = null;
-        private string _freeNASUsername = null;
-        private string _freeNASPassword = null;
-
-        public hypervisor_vmware(hypSpec_vmware spec, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
+        protected hypervisor_vmware_withoutSnapshots(hypSpec_vmware spec, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
         {
             _spec = spec;
 
@@ -52,7 +58,7 @@ namespace hypervisors
             List<EntityViewBase> vmlist = VClient.FindEntityViews(typeof (VirtualMachine), null, null, null);
             _underlyingVM = (VirtualMachine) vmlist.SingleOrDefault(x => ((VirtualMachine) x).Name.ToLower() == _spec.kernelVMName.ToLower());
             if (_underlyingVM == null)
-                throw new Exception("Can't find VM named '" + _spec.kernelVMName + "'");
+                throw new VMNotFoundException("Can't find VM named '" + _spec.kernelVMName + "'");
 
             _executionMethod = newExecMethod;
             switch (newExecMethod)
@@ -68,122 +74,11 @@ namespace hypervisors
             }
         }
 
-        public void configureForFreeNASSnapshots(string freeNASIP, string freeNASUsername, string freeNASPassword)
+        public override void powerOn(DateTime deadline = default(DateTime))
         {
-            _freeNASIP = freeNASIP;
-            _freeNASUsername = freeNASUsername;
-            _freeNASPassword = freeNASPassword;
+            if (deadline == default(DateTime))
+                deadline = DateTime.Now + TimeSpan.FromMinutes(3);
 
-            snapshotMethod = snapshotMethodEnum.FreeNAS;
-        }
-
-        public override void restoreSnapshotByName()
-        {
-            if (snapshotMethod == snapshotMethodEnum.vmware)
-            {
-                _underlyingVM.UpdateViewData();
-
-                // Find its named snapshot
-                VirtualMachineSnapshotTree snapshot = findRecusively(_underlyingVM.Snapshot.RootSnapshotList, _spec.snapshotFriendlyName);
-
-                // and revert it.
-                VirtualMachineSnapshot shot = new VirtualMachineSnapshot(VClient, snapshot.Snapshot);
-                shot.RevertToSnapshot(_underlyingVM.MoRef, false);
-            }
-            else if (snapshotMethod == snapshotMethodEnum.FreeNAS)
-            {
-                freeNASSnapshot.restoreSnapshot(this,_freeNASIP, _freeNASUsername, _freeNASPassword);
-            }
-            else
-            {
-                throw new ArgumentException("snapshotMethod");
-            }
-        }
-
-        private VirtualMachineSnapshotTree findRecusively(VirtualMachineSnapshotTree[] parent, string snapshotNameOrID)
-        {
-            foreach (VirtualMachineSnapshotTree tree in parent)
-            {
-                if (tree.Name == snapshotNameOrID || tree.Id.ToString() == snapshotNameOrID)
-                    return tree;
-
-                return findRecusively(tree.ChildSnapshotList, snapshotNameOrID);
-            }
-            return null;
-        }
-
-        private string doWithRetryOnSomeExceptions(Func<string> thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
-        {
-            int retries = maxRetries;
-            if (retry == default(TimeSpan))
-                retry = TimeSpan.Zero;
-
-            while (true)
-            {
-                try
-                {
-                    return thingtoDo.Invoke();
-                }
-                catch (VimException e)
-                {
-                    if (e.Message.Contains("are insufficient for the operation"))
-                        throw;
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (SoapException)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (TimeoutException)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (System.Net.WebException)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (hypervisorExecutionException)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (hypervisorExecutionException_retryable)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                Thread.Sleep(retry);
-            }
-        }
-
-        public override void connect()
-        {
-        }
-
-        public override void powerOn()
-        {
             // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
             // particularly under load, hence the retries.
             doWithRetryOnSomeExceptions(() =>
@@ -191,13 +86,11 @@ namespace hypervisors
                 //lock (VMWareLock)
                 {
                     _underlyingVM.UpdateViewData();
-                    Debug.WriteLine(_underlyingVM.Runtime.PowerState);
                     if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOn)
-                        return null;
+                        return;
                     _underlyingVM.PowerOnVM(_underlyingVM.Runtime.Host);
                 }
-                return null;
-            }, TimeSpan.FromSeconds(3), 100);
+            }, TimeSpan.FromSeconds(5), DateTime.Now - deadline);
             
             // Wait for it to be ready
             if (_executionMethod == clientExecutionMethod.vmwaretools)
@@ -217,36 +110,40 @@ namespace hypervisors
             {
                 startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
                 return "";
-            }, TimeSpan.FromSeconds(5), 100);
+            }, TimeSpan.FromSeconds(5), DateTime.Now - deadline);
         }
 
-        public override void powerOff()
+        public override void powerOff(DateTime deadline = new DateTime())
         {
+            if (deadline == default(DateTime))
+                deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+
             // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
             // particularly under load, hence the retries.
             _underlyingVM.UpdateViewData();
-//            Debug.WriteLine("poweroff: old state " + _underlyingVM.Runtime.PowerState);
             while (_underlyingVM.Runtime.PowerState != VirtualMachinePowerState.poweredOff)
             {
                 doWithRetryOnSomeExceptions(() =>
                 {
                     _underlyingVM.UpdateViewData();
-//                    Debug.WriteLine("poweroff: old state " + _underlyingVM.Runtime.PowerState);
                     if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
-                        return null;
+                        return;
                     _underlyingVM.PowerOffVM();
-                    return null;
-                }, TimeSpan.FromSeconds(1), 10);
+                }, TimeSpan.FromSeconds(5), DateTime.Now - deadline);
             }
         }
 
-        public override void copyToGuest(string srcpath, string dstpath)
+        public override void connect()
+        {
+
+        }
+
+        public override void copyToGuest(string dstpath, string srcpath)
         {
             doWithRetryOnSomeExceptions(() =>
             {
-                _copyToGuest(srcpath, dstpath);
-                return null;
-            }, TimeSpan.FromMilliseconds(100), 100);
+                _copyToGuest(dstpath, srcpath);
+            }, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1));
         }
 
         private void _copyToGuest(string srcpath, string dstpath)
@@ -254,17 +151,20 @@ namespace hypervisors
             executor.copyToGuest(srcpath, dstpath);
         }
 
-        public override string getFileFromGuest(string srcpath)
+        public override string getFileFromGuest(string srcpath, TimeSpan timeout)
         {
+            if (timeout == default(TimeSpan))
+                timeout = TimeSpan.FromSeconds(30);
+
             return doWithRetryOnSomeExceptions(() =>
             {
                 return executor.getFileFromGuest(srcpath);
-            }, TimeSpan.FromMilliseconds(100), 100);
+            }, TimeSpan.FromSeconds(10), timeout);
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingdir = null)
+        public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = new DateTime())
         {
-            return executor.startExecutable(toExecute, args, workingdir);
+            return executor.startExecutable(toExecute, args, workingdir, deadline);
         }
 
         public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
@@ -282,8 +182,7 @@ namespace hypervisors
             doWithRetryOnSomeExceptions(() =>
             {
                 executor.mkdir(newDir);
-                return null;
-            }, TimeSpan.FromMilliseconds(100), 100);
+            }, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1));
         }
 
         public override hypSpec_vmware getConnectionSpec()
@@ -306,10 +205,71 @@ namespace hypervisors
         }
     }
 
-    public enum snapshotMethodEnum
+    public class VMNotFoundException : Exception
     {
-        vmware, // Use VMWare's snapshotting ability
-        FreeNAS // Use our own iSCSI cold 'snapshotting' ability
+        public VMNotFoundException(string msg) : base(msg)
+        {
+            
+        }
+    }
+
+    /// <summary>
+    /// A snapshottable VM, powered by FreeNAS / iscsi / PXE.
+    /// </summary>
+    public class hypervisor_vmware_FreeNAS : hypervisor_vmware_withoutSnapshots
+    {
+        private string _freeNASIP;
+        private string _freeNASUsername;
+        private string _freeNASPassword;
+
+        public hypervisor_vmware_FreeNAS(hypSpec_vmware spec, 
+            string freeNasip, string freeNasUsername, string freeNasPassword, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools) 
+            : base(spec, newExecMethod)
+        {
+            _freeNASIP = freeNasip;
+            _freeNASUsername = freeNasUsername;
+            _freeNASPassword = freeNasPassword;
+        }
+
+        public override void restoreSnapshot()
+        {
+            freeNASSnapshot.restoreSnapshot(this,_freeNASIP, _freeNASUsername, _freeNASPassword);
+        }
+    }
+
+    /// <summary>
+    /// A snapshottable VMWare VM, using VMWare's built-in snapshot ability.
+    /// </summary>
+    public class hypervisor_vmware : hypervisor_vmware_withoutSnapshots
+    {
+        public hypervisor_vmware(hypSpec_vmware spec, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools) 
+            : base(spec, newExecMethod)
+        {
+        }
+
+        public override void restoreSnapshot()
+        {
+            _underlyingVM.UpdateViewData();
+
+            // Find a named snapshot which corresponds to what we're interested in
+            VirtualMachineSnapshotTree snapshot = findRecusively(_underlyingVM.Snapshot.RootSnapshotList, _spec.snapshotFriendlyName);
+
+            // and revert it.
+            VirtualMachineSnapshot shot = new VirtualMachineSnapshot(VClient, snapshot.Snapshot);
+            shot.RevertToSnapshot(_underlyingVM.MoRef, false);
+        }
+
+        private VirtualMachineSnapshotTree findRecusively(VirtualMachineSnapshotTree[] parent, string snapshotNameOrID)
+        {
+            foreach (VirtualMachineSnapshotTree tree in parent)
+            {
+                if (tree.Name == snapshotNameOrID || tree.Id.ToString() == snapshotNameOrID)
+                    return tree;
+
+                return findRecusively(tree.ChildSnapshotList, snapshotNameOrID);
+            }
+            return null;
+        }
     }
 
     public enum clientExecutionMethod

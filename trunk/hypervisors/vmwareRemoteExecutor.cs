@@ -37,7 +37,7 @@ namespace hypervisors
             GFM.MakeDirectoryInGuest(_underlyingVM.MoRef, Auth, newDir, true);
         }
 
-        public override void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string dstpath, string srcpath)
         {
             NamePasswordAuthentication Auth = new NamePasswordAuthentication
             {
@@ -51,24 +51,24 @@ namespace hypervisors
             guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
             GuestFileManager GFM = _vClient.GetView(gom.FileManager, null) as GuestFileManager;
 
-            System.IO.FileInfo FileToTransfer = new System.IO.FileInfo(srcpath);
+            System.IO.FileInfo FileToTransfer = new System.IO.FileInfo(dstpath);
             GuestFileAttributes GFA = new GuestFileAttributes()
             {
                 AccessTime = FileToTransfer.LastAccessTimeUtc,
                 ModificationTime = FileToTransfer.LastWriteTimeUtc
             };
 
-            if (dstpath.EndsWith("\\"))
-                dstpath += Path.GetFileName(srcpath);
+            if (srcpath.EndsWith("\\"))
+                srcpath += Path.GetFileName(dstpath);
 
-            string transferOutput = GFM.InitiateFileTransferToGuest(_underlyingVM.MoRef, Auth, dstpath, GFA, FileToTransfer.Length, true);
+            string transferOutput = GFM.InitiateFileTransferToGuest(_underlyingVM.MoRef, Auth, srcpath, GFA, FileToTransfer.Length, true);
             string nodeIpAddress = _vClient.ServiceUrl.ToString();
             nodeIpAddress = nodeIpAddress.Remove(nodeIpAddress.LastIndexOf('/'));
             transferOutput = transferOutput.Replace("https://*", nodeIpAddress);
             Uri oUri = new Uri(transferOutput);
             using (WebClient webClient = new WebClient())
             {
-                webClient.UploadFile(oUri, "PUT", srcpath);
+                webClient.UploadFile(oUri, "PUT", dstpath);
             }            
         }
 

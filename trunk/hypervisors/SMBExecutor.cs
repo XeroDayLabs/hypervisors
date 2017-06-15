@@ -200,14 +200,14 @@ namespace hypervisors
             }
         }
 
-        public override void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string dstPath, string srcPath)
         {   
-            if (!dstpath.ToLower().StartsWith("c:"))
+            if (!srcPath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
 
-            string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, dstpath.Substring(2));
+            string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, srcPath.Substring(2));
             if (destUNC.EndsWith("\\"))
-                destUNC += Path.GetFileName(srcpath);
+                destUNC += Path.GetFileName(dstPath);
 
             DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
             while (true)
@@ -219,7 +219,7 @@ namespace hypervisors
                         if (File.Exists(destUNC))
                             break;
                         // race condition here?
-                        System.IO.File.Copy(srcpath, destUNC);
+                        System.IO.File.Copy(dstPath, destUNC);
                     }
                     break;
                 }

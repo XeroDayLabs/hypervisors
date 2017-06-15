@@ -11,7 +11,7 @@ namespace hypervisors
         {
             hypSpec_withWindbgKernel _spec = hyp.getBaseConnectionSpec();
 
-            FreeNAS nas = new FreeNAS(freeNASIP, freeNASUsername, freeNASPassword);
+            NASAccess nas = new FreeNAS(freeNASIP, freeNASUsername, freeNASPassword);
 
             // Find the device snapshot, so we can get information about it needed to get the ISCSI volume
             snapshotObjects shotObjects = getSnapshotObjectsFromNAS(nas, _spec.snapshotFullName);
@@ -52,7 +52,7 @@ namespace hypervisors
             }
         }
 
-        public static snapshotObjects getSnapshotObjectsFromNAS(FreeNAS nas, string snapshotFullName)
+        public static snapshotObjects getSnapshotObjectsFromNAS(NASAccess nas, string snapshotFullName)
         {
             List<snapshot> snapshots = nas.getSnapshots();
             snapshot shotToRestore = snapshots.SingleOrDefault(

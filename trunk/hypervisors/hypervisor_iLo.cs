@@ -55,7 +55,7 @@ namespace hypervisors
                 _executor = new SSHExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
         }
 
-        public override void restoreSnapshotByName()
+        public override void restoreSnapshot()
         {
             freeNASSnapshot.restoreSnapshot(this, _spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
         }
@@ -74,13 +74,7 @@ namespace hypervisors
             }
         }
 
-        public override void powerOn()
-        {
-            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(6);
-            powerOn(deadline);
-        }
- 
-        public void powerOn(DateTime connectDeadline)
+        public override void powerOn(DateTime connectDeadline)
         {
             while (true)
             {
@@ -118,80 +112,7 @@ namespace hypervisors
             });
         }
 
-        public static void doWithRetryOnSomeExceptions(Action thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
-        {
-            doWithRetryOnSomeExceptions<int>(
-                new Func<int>(() => { 
-                    thingtoDo(); 
-                    return 0;
-                }),
-                retry, maxRetries);
-        }
-
-        public static T doWithRetryOnSomeExceptions<T>(Func<T> thingtoDo, TimeSpan retry = default(TimeSpan), int maxRetries = 0)
-        {
-            int retries = maxRetries;
-            if (retry == default(TimeSpan))
-                retry = TimeSpan.Zero;
-
-            while (true)
-            {
-                try
-                {
-                    return thingtoDo.Invoke();
-                }
-                catch (Win32Exception)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (System.Net.WebException)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (psExecException)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (hypervisorExecutionException)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-                catch (hypervisorExecutionException_retryable)
-                {
-                    if (maxRetries != 0)
-                    {
-                        if (retries-- == 0)
-                            throw;
-                    }
-                }
-
-                Thread.Sleep(retry);
-            }
-        }
-
-        public override void powerOff()
-        {
-            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
-            powerOff(deadline);
-        }
-
-        public void powerOff(DateTime deadline)
+        public override void powerOff(DateTime deadline)
         {
             refCount<hypervisor_iLo_HTTP> ilo;
             lock (_ilos)
@@ -234,18 +155,23 @@ namespace hypervisors
             }
         }
 
-        public override string getFileFromGuest(string srcpath)
+        public override string getFileFromGuest(string srcpath, TimeSpan timeout = new TimeSpan())
         {
             if (_executor == null)
                 throw new NotSupportedException();
-            return _executor.getFileFromGuest(srcpath);
+
+            return doWithRetryOnSomeExceptions( () =>
+                {
+                    return _executor.getFileFromGuest(srcpath);
+                }, timeout
+            );
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingdir = null)
+        public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = new DateTime())
         {
             if (_executor == null)
                 throw new NotSupportedException();
-            executionResult toRet = _executor.startExecutable(toExecute, args, workingdir);
+            executionResult toRet = _executor.startExecutable(toExecute, args, workingdir, deadline);
             //Debug.WriteLine("Command '{0}' with args '{1}' returned {2} stdout '{3}' stderr '{4}'", toExecute, args, toRet.resultCode, toRet.stdout, toRet.stderr);
 
             return toRet;
@@ -275,11 +201,11 @@ namespace hypervisors
             return _spec;
         }
 
-        public override void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string dstpath, string srcpath)
         {
             if (_executor == null)
                 throw new NotSupportedException();
-            _executor.copyToGuest(srcpath, dstpath);
+            _executor.copyToGuest(dstpath, srcpath);
         }
 
         public void deleteFile(string toDelete)
@@ -292,12 +218,6 @@ namespace hypervisors
         public override string ToString()
         {
             return string.Format("{0}:{1}", _spec.kernelDebugIPOrHostname, _spec.kernelDebugPort);
-        }
-
-        public void checkSnapshotSanity()
-        {
-            FreeNAS nas = new FreeNAS(_spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
-            freeNASSnapshot.getSnapshotObjectsFromNAS(nas, _spec.snapshotFullName);
         }
 
         protected override void Dispose(bool disposing)
