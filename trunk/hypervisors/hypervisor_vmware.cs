@@ -146,9 +146,9 @@ namespace hypervisors
             }, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1));
         }
 
-        private void _copyToGuest(string srcpath, string dstpath)
+        private void _copyToGuest(string dstpath, string srcpath)
         {
-            executor.copyToGuest(srcpath, dstpath);
+            executor.copyToGuest(dstpath, srcpath);
         }
 
         public override string getFileFromGuest(string srcpath, TimeSpan timeout)

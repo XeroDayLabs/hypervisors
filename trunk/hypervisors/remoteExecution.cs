@@ -10,7 +10,7 @@ namespace hypervisors
     public abstract class remoteExecution
     {
         public abstract void mkdir(string newDir);
-        public abstract void copyToGuest(string srcpath, string dstpath);
+        public abstract void copyToGuest(string dstpath, string srcpath);
         public abstract string getFileFromGuest(string srcpath);
         public abstract IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null);
         public abstract void testConnectivity();

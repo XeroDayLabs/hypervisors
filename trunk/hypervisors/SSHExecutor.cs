@@ -34,7 +34,7 @@ namespace hypervisors
             throw new NotImplementedException();
         }
 
-        public override void copyToGuest(string srcpath, string dstpath)
+        public override void copyToGuest(string dstpath, string srcpath)
         {
             using (ScpClient client = new ScpClient(inf))
             {
