@@ -52,7 +52,7 @@ namespace hypervisors
             ps.WorkingDirectory = workingDir;
             using (Process process = Process.Start(ps))
             {
-                TimeSpan timeout = DateTime.Now - deadline;
+                TimeSpan timeout = deadline - DateTime.Now;
                 if (!process.WaitForExit((int) timeout.TotalMilliseconds))
                     throw new TimeoutException();
 

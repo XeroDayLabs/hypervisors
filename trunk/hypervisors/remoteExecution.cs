@@ -18,7 +18,7 @@ namespace hypervisors
 
         public executionResult startExecutable(string toExecute, string args, string workingDir, DateTime deadline)
         {
-            return startExecutable(toExecute, args, workingDir, DateTime.Now - deadline);
+            return startExecutable(toExecute, args, workingDir, deadline - DateTime.Now);
         }
 
         public virtual executionResult startExecutable(string toExecute, string args, string workingDir = null, TimeSpan timeout = default(TimeSpan))

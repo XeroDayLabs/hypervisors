@@ -90,7 +90,7 @@ namespace hypervisors
                         return;
                     _underlyingVM.PowerOnVM(_underlyingVM.Runtime.Host);
                 }
-            }, TimeSpan.FromSeconds(5), DateTime.Now - deadline);
+            }, TimeSpan.FromSeconds(5), deadline - DateTime.Now);
             
             // Wait for it to be ready
             if (_executionMethod == clientExecutionMethod.vmwaretools)
@@ -110,7 +110,7 @@ namespace hypervisors
             {
                 startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
                 return "";
-            }, TimeSpan.FromSeconds(5), DateTime.Now - deadline);
+            }, TimeSpan.FromSeconds(5), deadline - DateTime.Now);
         }
 
         public override void powerOff(DateTime deadline = default(DateTime))
@@ -129,7 +129,7 @@ namespace hypervisors
                     if (_underlyingVM.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
                         return;
                     _underlyingVM.PowerOffVM();
-                }, TimeSpan.FromSeconds(5), DateTime.Now - deadline);
+                }, TimeSpan.FromSeconds(5), deadline - DateTime.Now);
             }
         }
 
