@@ -119,34 +119,38 @@ namespace hypervisors
         public void copyToGuestFromBuffer(string dstpath, byte[] srcContents)
         {
             string tmpFilename = Path.GetTempFileName();
-            using (FileStream tmpFile = new FileStream(tmpFilename, FileMode.OpenOrCreate))
+            try
             {
-                tmpFile.Write(srcContents, 0, srcContents.Length);
-                tmpFile.Seek(0, SeekOrigin.Begin);
+                using (FileStream tmpFile = new FileStream(tmpFilename, FileMode.OpenOrCreate))
+                {
+                    tmpFile.Write(srcContents, 0, srcContents.Length);
+                    tmpFile.Seek(0, SeekOrigin.Begin);
+                }
                 copyToGuest(dstpath, tmpFilename);
             }
-
-            // Delete with a retry, in case something (eg windows defender) has started using the file.
-            DateTime deadline = DateTime.Now + TimeSpan.FromSeconds(30);
-            while (true)
+            finally
             {
-                try
+                // Delete with a retry, in case something (eg windows defender) has started using the file.
+                DateTime deadline = DateTime.Now + TimeSpan.FromSeconds(30);
+                while (true)
                 {
-                    File.Delete(tmpFilename);
-                    break;
-                }
-                catch (FileNotFoundException)
-                {
-                    break;
-                }
-                catch (Exception)
-                {
-                    if (deadline < DateTime.Now)
-                        throw;
-                    Thread.Sleep(TimeSpan.FromSeconds(2));
+                    try
+                    {
+                        File.Delete(tmpFilename);
+                        break;
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        break;
+                    }
+                    catch (Exception)
+                    {
+                        if (deadline < DateTime.Now)
+                            throw;
+                        Thread.Sleep(TimeSpan.FromSeconds(2));
+                    }
                 }
             }
-
         }
 
         public void copyToGuestFromBuffer(string dstPath, string srcContents)
