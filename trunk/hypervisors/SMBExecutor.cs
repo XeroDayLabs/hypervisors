@@ -245,7 +245,7 @@ namespace hypervisors
                         if (File.Exists(destUNC))
                             break;
                         // race condition here?
-                        System.IO.File.Copy(dstPath, destUNC);
+                        System.IO.File.Copy(srcPath, destUNC);
                     }
                     break;
                 }
