@@ -231,7 +231,7 @@ namespace hypervisors
             if (!srcPath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
 
-            string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, srcPath.Substring(2));
+            string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, dstPath.Substring(2));
             if (destUNC.EndsWith("\\"))
                 destUNC += Path.GetFileName(dstPath);
 
