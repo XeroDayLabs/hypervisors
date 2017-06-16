@@ -60,7 +60,7 @@ namespace hypervisors
             try
             {
                 // Now execute the launcher.bat via psexec.
-                string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -u {1} -p {2} -w {4} -h \"{3}\"",
+                string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -u {1} -p {2} -w {4} -n 5 -h \"{3}\"",
                     _guestIP, _username, _password, fileSet.launcherPath, workingDir, "-d", runInteractively ? " -i " : "");
                 ProcessStartInfo info = new ProcessStartInfo(findPsexecPath(), psExecArgs);
                 info.RedirectStandardError = true;
@@ -71,8 +71,11 @@ namespace hypervisors
                 //Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
                 Process proc = Process.Start(info);
 
-                // We allow psexec a very short window to start the process async on the host.
-                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(5).TotalMilliseconds))
+                // We allow psexec a relatively long window to start the process async on the host.
+                // This is because psexec can frequently take a long time to operate. Note that we 
+                // supply "-n" to psexec so we don't wait for a long time for non-responsive machines
+                // (eg, in the poweron path).
+                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(30).TotalMilliseconds))
                 {
                     try
                     {
