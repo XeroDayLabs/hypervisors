@@ -192,13 +192,20 @@ namespace hypervisors
         {
             try
             {
+                // Read the return code last. We do this because there's no way in VMWare's guest tools specify file locking, so
+                // we may see empty files before they have been written to.
+                int retCode = Int32.Parse(_host.withRetryUntilSuccess(() => _host.getFileFromGuest(_returnCodeFilename)));
+
                 string stdOut = _host.withRetryUntilSuccess(() => _host.getFileFromGuest(_stdOutFilename));
                 string stdErr = _host.withRetryUntilSuccess(() => _host.getFileFromGuest(_stdErrFilename));
-                string retCodeStr = _host.withRetryUntilSuccess(() => _host.getFileFromGuest(_returnCodeFilename));
 
-                return new executionResult(stdOut, stdErr, Int32.Parse(retCodeStr));
+                return new executionResult(stdOut, stdErr, retCode);
             }
             catch (FileNotFoundException)
+            {
+                return null;
+            }
+            catch (NullReferenceException)
             {
                 return null;
             }
