@@ -87,7 +87,8 @@ namespace hypervisors
                         e is TimeoutException ||
                         e is WebException ||
                         e is hypervisorExecutionException ||
-                        e is hypervisorExecutionException_retryable)
+                        e is hypervisorExecutionException_retryable ||
+                        e is SshConnectionException)
                     {
                         if (DateTime.Now > deadline)
                         {
