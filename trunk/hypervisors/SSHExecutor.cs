@@ -36,26 +36,21 @@ namespace hypervisors
 
         public override void copyToGuest(string dstpath, string srcpath)
         {
-            using (ScpClient client = new ScpClient(inf))
+            using (SftpClient client = new SftpClient(inf))
             {
                 client.Connect();
-                using (FileStream srcStream = new FileStream(srcpath, FileMode.Open))
-                    client.Upload(srcStream, dstpath);
+                byte[] bytesToWrite = File.ReadAllBytes(srcpath);
+                client.WriteAllBytes(dstpath, bytesToWrite);
             }
         }
 
         public override string getFileFromGuest(string srcpath)
         {
-            using (ScpClient client = new ScpClient(inf))
+            using (SftpClient client = new SftpClient(inf))
             {
                 client.Connect();
 
-                using (FileStream tmpFile = new FileStream(Path.GetTempFileName(), FileMode.OpenOrCreate))
-                {
-                    client.Download(srcpath, tmpFile);
-                    tmpFile.Seek(0, SeekOrigin.Begin);
-                    return File.ReadAllText(srcpath);
-                }
+                return client.ReadAllText(srcpath);
             }
         }
 

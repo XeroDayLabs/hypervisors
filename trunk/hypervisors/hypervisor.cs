@@ -82,7 +82,6 @@ namespace hypervisors
                 {
                     // TODO: these should really be wrapped - ie, sshexceptions should only be caught by the sshexecutor, and rethrown as something sensible
                     if (e is SocketException ||
-                        e is SshException ||
                         e is SoapException ||
                         e is TimeoutException ||
                         e is WebException ||
