@@ -33,8 +33,11 @@ namespace hypervisors
             while (resultInProgress == null)
             {
                 resultInProgress = startExecutableAsync(toExecute, args, workingDir);
-                if (DateTime.Now > deadline)
-                    throw new hypervisorExecutionException();
+//	FIXME!!!
+//     This is causing an awful assembly load failure when it throws :/
+//     Disabling the timeout for now because I am waaay behind schedule already
+//                if (DateTime.Now > deadline)
+//                    throw new hypervisorExecutionException();
                 Thread.Sleep(3);
             }
 

@@ -113,7 +113,7 @@ namespace hypervisors
             }, TimeSpan.FromSeconds(5), DateTime.Now - deadline);
         }
 
-        public override void powerOff(DateTime deadline = new DateTime())
+        public override void powerOff(DateTime deadline = default(DateTime))
         {
             if (deadline == default(DateTime))
                 deadline = DateTime.Now + TimeSpan.FromMinutes(3);

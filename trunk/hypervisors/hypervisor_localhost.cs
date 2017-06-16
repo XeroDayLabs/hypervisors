@@ -15,12 +15,12 @@ namespace hypervisors
         {
         }
         
-        public override void powerOn(DateTime deadline)
+        public override void powerOn(DateTime deadline = default(DateTime))
         {
 
         }
 
-        public override void powerOff(DateTime deadline)
+        public override void powerOff(DateTime deadline = default(DateTime))
         {
 
         }
