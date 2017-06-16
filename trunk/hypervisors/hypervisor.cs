@@ -42,11 +42,11 @@ namespace hypervisors
                 mkdir(dest);
             foreach (string srcName in Directory.GetFiles(src))
             {
-                copyToGuest(srcName, dest + "\\");
+                copyToGuest(dest + "\\", srcName);
             }
             foreach (string srcName in Directory.GetDirectories(src))
             {
-                copyDirToGuest(srcName, Path.Combine(dest, Path.GetFileName(srcName)));
+                copyDirToGuest(Path.Combine(dest, Path.GetFileName(srcName)), srcName);
             }
         }
 

@@ -105,8 +105,8 @@ namespace hypervisors
                 // And the payload batch.
                 File.WriteAllText(payloadBatchfile, string.Format("@{0} {1}", toExecute, args));
                 // Then, copy them to the guest.
-                withRetryUntilSuccess(() => copyToGuest(launcherTempFile, launcherRemotePath));
-                withRetryUntilSuccess(() => copyToGuest(payloadBatchfile, payloadRemotePath));
+                withRetryUntilSuccess(() => copyToGuest(launcherRemotePath, launcherTempFile));
+                withRetryUntilSuccess(() => copyToGuest(payloadRemotePath, payloadBatchfile, ));
 
                 // Now return info about what files we're going to use, so the caller can.. use them.
                 return new execFileSet(stdOutFilename, stdErrFilename, returnCodeFilename, launcherRemotePath);
