@@ -51,25 +51,25 @@ namespace hypervisors
             guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
             GuestFileManager GFM = _vClient.GetView(gom.FileManager, null) as GuestFileManager;
 
-            System.IO.FileInfo FileToTransfer = new System.IO.FileInfo(dstpath);
+            System.IO.FileInfo FileToTransfer = new System.IO.FileInfo(srcpath);
             GuestFileAttributes GFA = new GuestFileAttributes()
             {
                 AccessTime = FileToTransfer.LastAccessTimeUtc,
                 ModificationTime = FileToTransfer.LastWriteTimeUtc
             };
 
-            if (srcpath.EndsWith("\\"))
-                srcpath += Path.GetFileName(dstpath);
+            if (dstpath.EndsWith("\\"))
+                dstpath += Path.GetFileName(srcpath);
 
-            string transferOutput = GFM.InitiateFileTransferToGuest(_underlyingVM.MoRef, Auth, srcpath, GFA, FileToTransfer.Length, true);
+            string transferOutput = GFM.InitiateFileTransferToGuest(_underlyingVM.MoRef, Auth, dstpath, GFA, FileToTransfer.Length, true);
             string nodeIpAddress = _vClient.ServiceUrl.ToString();
             nodeIpAddress = nodeIpAddress.Remove(nodeIpAddress.LastIndexOf('/'));
             transferOutput = transferOutput.Replace("https://*", nodeIpAddress);
             Uri oUri = new Uri(transferOutput);
             using (WebClient webClient = new WebClient())
             {
-                webClient.UploadFile(oUri, "PUT", dstpath);
-            }            
+                webClient.UploadFile(oUri, "PUT", srcpath);
+            }
         }
 
         public override string getFileFromGuest(string srcpath)
