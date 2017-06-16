@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Web.Services.Protocols;
 using Renci.SshNet;
@@ -113,6 +114,44 @@ namespace hypervisors
                     return 0;   // Return a dummy value
                 }),
                 retry, timeout);
+        }
+
+        public void copyToGuestFromBuffer(string dstpath, byte[] srcContents)
+        {
+            string tmpFilename = Path.GetTempFileName();
+            using (FileStream tmpFile = new FileStream(tmpFilename, FileMode.OpenOrCreate))
+            {
+                tmpFile.Write(srcContents, 0, srcContents.Length);
+                tmpFile.Seek(0, SeekOrigin.Begin);
+                copyToGuest(dstpath, tmpFilename);
+            }
+
+            // Delete with a retry, in case something (eg windows defender) has started using the file.
+            DateTime deadline = DateTime.Now + TimeSpan.FromSeconds(30);
+            while (true)
+            {
+                try
+                {
+                    File.Delete(tmpFilename);
+                    break;
+                }
+                catch (FileNotFoundException)
+                {
+                    break;
+                }
+                catch (Exception)
+                {
+                    if (deadline < DateTime.Now)
+                        throw;
+                    Thread.Sleep(TimeSpan.FromSeconds(2));
+                }
+            }
+
+        }
+
+        public void copyToGuestFromBuffer(string dstPath, string srcContents)
+        {
+            copyToGuestFromBuffer(dstPath, Encoding.ASCII.GetBytes(srcContents));
         }
     }
 

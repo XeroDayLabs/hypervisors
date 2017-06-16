@@ -98,7 +98,7 @@ namespace hypervisors
                 if (DateTime.Now > connectDeadline)
                     throw new TimeoutException();
 
-                Thread.Sleep(TimeSpan.FromSeconds(2));
+                Thread.Sleep(TimeSpan.FromSeconds(5));
             }
 
             // Wait until the host is up enough that we can ping it...
@@ -138,7 +138,7 @@ namespace hypervisors
                     if (getPowerStatus() == false)
                         break;
 
-                    Thread.Sleep(TimeSpan.FromSeconds(3));
+                    Thread.Sleep(TimeSpan.FromSeconds(5));
 
                     if (deadline < DateTime.Now)
                         throw new TimeoutException("Failed to turn off machine via iLo");

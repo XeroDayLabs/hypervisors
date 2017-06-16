@@ -71,8 +71,8 @@ namespace hypervisors
                 //Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
                 Process proc = Process.Start(info);
 
-                // We allow psexec 65 seconds to start the process async on the host.
-                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
+                // We allow psexec a versy short window to start the process async on the host.
+                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(5).TotalMilliseconds))
                 {
                     try
                     {
