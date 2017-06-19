@@ -46,7 +46,7 @@ namespace hypervisors
                 workingDir = "C:\\";
 
             if (deadline == default(DateTime))
-                deadline = DateTime.MaxValue;
+                deadline = DateTime.Now + TimeSpan.FromDays(7);
             
             ProcessStartInfo ps = new ProcessStartInfo(toExecute, args);
             ps.UseShellExecute = false;
