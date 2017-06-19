@@ -45,11 +45,28 @@ namespace hypervisors
             _spec = spec;
 
             // If we can't ping the box, assume we can't connect to the API either. We do this since I can't work out how to
-            // set connection timeouts for the VMWare api.
-            Icmp pinger = new Icmp(Dns.GetHostAddresses(spec.kernelVMServer).First());
-            TimeSpan res = pinger.Ping(TimeSpan.FromSeconds(3));
-            if (res == TimeSpan.MaxValue)
-                throw new WebException();
+            // set connection timeouts for the VMWare api (is there a way?).
+            // We ping a few times, though, to allow for any packet loss going on.
+            int pingRetries = 5;
+            while (true)
+            {
+                Icmp pinger = new Icmp(Dns.GetHostAddresses(spec.kernelVMServer).First());
+                TimeSpan res = pinger.Ping(TimeSpan.FromSeconds(3));
+                if (res != TimeSpan.MaxValue)
+                {
+                    // Success, so continue.
+                    break;
+                }
+                else
+                {
+                    // No response. If we have retries left, use one, or throw if not.
+                    if (pingRetries == 0)
+                        throw new WebException("Can't ping ESXi before trying to access web API");
+
+                    pingRetries--;
+                    Thread.Sleep(TimeSpan.FromSeconds(4));
+                }
+            }
 
             VClient = new VimClientImpl();
             VClient.Connect("https://" + _spec.kernelVMServer + "/sdk");
