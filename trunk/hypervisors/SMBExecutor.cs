@@ -75,7 +75,7 @@ namespace hypervisors
                 // This is because psexec can frequently take a long time to operate. Note that we 
                 // supply "-n" to psexec so we don't wait for a long time for non-responsive machines
                 // (eg, in the poweron path).
-                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(30).TotalMilliseconds))
+                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
                 {
                     try
                     {
@@ -85,7 +85,7 @@ namespace hypervisors
                     {
                     }
 
-                    throw new TimeoutException();
+                    return null;
                 }
 
                 // Now we can scrape stdout and make sure the process was started correctly. 
@@ -233,7 +233,7 @@ namespace hypervisors
 
             string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, dstPath.Substring(2));
             if (destUNC.EndsWith("\\"))
-                destUNC += Path.GetFileName(dstPath);
+                destUNC += Path.GetFileName(srcPath);
 
             DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
             while (true)
