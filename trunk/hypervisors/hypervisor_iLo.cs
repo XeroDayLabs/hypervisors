@@ -173,7 +173,7 @@ namespace hypervisors
             );
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = new DateTime())
+        public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = default(DateTime))
         {
             if (_executor == null)
                 throw new NotSupportedException();

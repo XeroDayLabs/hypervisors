@@ -179,7 +179,7 @@ namespace hypervisors
             }, TimeSpan.FromSeconds(10), timeout);
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = new DateTime())
+        public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = default(DateTime))
         {
             return executor.startExecutable(toExecute, args, workingdir, deadline);
         }

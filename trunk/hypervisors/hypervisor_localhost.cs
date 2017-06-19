@@ -40,11 +40,14 @@ namespace hypervisors
             return File.ReadAllText(srcpath);
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingDir = null, DateTime deadline = new DateTime())
+        public override executionResult startExecutable(string toExecute, string args, string workingDir = null, DateTime deadline = default(DateTime))
         {
             if (workingDir == null)
                 workingDir = "C:\\";
 
+            if (deadline == default(DateTime))
+                deadline = DateTime.MaxValue;
+            
             ProcessStartInfo ps = new ProcessStartInfo(toExecute, args);
             ps.UseShellExecute = false;
             ps.RedirectStandardError = true;
