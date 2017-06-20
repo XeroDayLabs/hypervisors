@@ -77,7 +77,7 @@ namespace hypervisors
         public override void powerOn(DateTime connectDeadline = default(DateTime))
         {
             if (connectDeadline == default(DateTime))
-                connectDeadline = DateTime.Now + TimeSpan.FromMinutes(3);
+                connectDeadline = DateTime.Now + TimeSpan.FromMinutes(6);
 
             while (true)
             {
