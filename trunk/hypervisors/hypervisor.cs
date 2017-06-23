@@ -27,7 +27,6 @@ namespace hypervisors
 
         protected virtual void Dispose(bool disposing)
         {
-            
         }
 
 
@@ -110,10 +109,11 @@ namespace hypervisors
 
         public static void doWithRetryOnSomeExceptions(System.Action thingtoDo, TimeSpan retry = default(TimeSpan), TimeSpan timeout = default(TimeSpan))
         {
-            doWithRetryOnSomeExceptions((() => {
-                    thingtoDo();
-                    return 0;   // Return a dummy value
-                }),
+            doWithRetryOnSomeExceptions((() =>
+            {
+                thingtoDo();
+                return 0; // Return a dummy value
+            }),
                 retry, timeout);
         }
 
@@ -221,7 +221,6 @@ namespace hypervisors
 
         public void Dispose()
         {
-
         }
     }
 
@@ -242,7 +241,6 @@ namespace hypervisors
 
         public executionResult()
         {
-
         }
 
         public executionResult(Process src)

@@ -2,7 +2,7 @@ using System;
 
 namespace hypervisors
 {
-    public class refCount<T> : IDisposable where T: IDisposable
+    public class refCount<T> : IDisposable where T : IDisposable
     {
         private int refCnt = 1;
         private T _tgt;
@@ -37,7 +37,7 @@ namespace hypervisors
 
                 if (refCnt == 1)
                     _tgt.Dispose();
-                
+
                 refCnt--;
             }
         }

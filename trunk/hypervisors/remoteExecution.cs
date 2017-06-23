@@ -67,9 +67,15 @@ namespace hypervisors
                 {
                     return action();
                 }
-                catch (Win32Exception) { }
-                catch (TimeoutException) { }
-                catch (VimException) { }
+                catch (Win32Exception)
+                {
+                }
+                catch (TimeoutException)
+                {
+                }
+                catch (VimException)
+                {
+                }
                 Thread.Sleep(TimeSpan.FromSeconds(3));
             }
         }
@@ -154,6 +160,5 @@ namespace hypervisors
                 }
             }
         }
-
     }
 }

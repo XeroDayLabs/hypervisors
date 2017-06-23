@@ -359,7 +359,6 @@ namespace hypervisors
                 return new List<iscsiPortal>(portalList);
             }
         }
-
     }
 
     public class mockedCall

@@ -52,7 +52,7 @@ namespace hypervisors
                     if (res != TimeSpan.MaxValue)
                     {
                         Debug.Print(".. Box " + getBaseConnectionSpec().kernelDebugIPOrHostname + " pingable, giving it a few more seconds..");
-                        Thread.Sleep(10 * 1000);
+                        Thread.Sleep(10*1000);
                         break;
                     }
                 }

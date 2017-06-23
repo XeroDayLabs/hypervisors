@@ -12,24 +12,37 @@ namespace hypervisors
 {
     public class nasAccessException : Exception
     {
-        public nasAccessException(string e) : base(e) { }
+        public nasAccessException(string e)
+            : base(e)
+        {
+        }
 
-        public nasAccessException() : base() { }
+        public nasAccessException()
+            : base()
+        {
+        }
 
         public static Exception create(HttpWebResponse resp, string url, string contentString)
         {
             if (resp.StatusCode == HttpStatusCode.Conflict)
                 return new nasConflictException("FreeNAS API call failed with 'conflict' status. URL " + url + " HTTP response body " + contentString);
             else
-                return new nasAccessException("FreeNAS API call failed, status " + resp.StatusCode + ", URL " + url + 
-                    " HTTP response body " + contentString);
+                return new nasAccessException("FreeNAS API call failed, status " + resp.StatusCode + ", URL " + url +
+                                              " HTTP response body " + contentString);
         }
     }
 
     public class nasConflictException : nasAccessException
     {
-        public nasConflictException() : base() { }
-        public nasConflictException(string s) : base(s) { }
+        public nasConflictException()
+            : base()
+        {
+        }
+
+        public nasConflictException(string s)
+            : base(s)
+        {
+        }
     }
 
     public abstract class NASAccess
@@ -128,7 +141,7 @@ namespace hypervisors
 
             try
             {
-                using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                using (HttpWebResponse resp = (HttpWebResponse) req.GetResponse())
                 {
                     using (Stream respStream = resp.GetResponseStream())
                     {
@@ -151,7 +164,7 @@ namespace hypervisors
                     using (StreamReader respStreamReader = new StreamReader(respStream))
                     {
                         string contentString = respStreamReader.ReadToEnd();
-                        throw nasAccessException.create(((HttpWebResponse)e.Response), url, contentString);
+                        throw nasAccessException.create(((HttpWebResponse) e.Response), url, contentString);
                     }
                 }
             }
@@ -184,7 +197,7 @@ namespace hypervisors
         public override void deleteISCSITargetToExtent(iscsiTargetToExtentMapping tgtToExtent)
         {
             string url = String.Format("http://{0}/api/v1.0/services/iscsi/targettoextent/{1}", _serverIp, tgtToExtent.id);
-            doReq(url, "DELETE", HttpStatusCode.NoContent);            
+            doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
 
         public override void deleteZVol(volume toDelete)
@@ -380,9 +393,9 @@ namespace hypervisors
                                            "\"iscsi_target_portalgroup\": \"{3}\", " +
                                            "\"iscsi_target_initiatorgroup\": \"{4}\", " +
                                            "\"iscsi_target_initialdigest\": \"{5}\" " +
-                                           "}}", target.id, 
+                                           "}}", target.id,
                 toAdd.iscsi_target_authgroup, toAdd.iscsi_target_authtype, toAdd.iscsi_target_portalgroup,
-                toAdd.iscsi_target_initiatorgroup, toAdd.iscsi_target_initialdigest );
+                toAdd.iscsi_target_initiatorgroup, toAdd.iscsi_target_initialdigest);
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/", "POST", HttpStatusCode.Created, payload).text;
             targetGroup created = JsonConvert.DeserializeObject<targetGroup>(HTTPResponse);
 
@@ -391,7 +404,7 @@ namespace hypervisors
 
         public override volume findParentVolume(List<volume> vols, volume volToFind)
         {
-            volume toRet = vols.SingleOrDefault(x => x.children.Count(y => y.name == volToFind.name && x.volType == "dataset" ) > 0);
+            volume toRet = vols.SingleOrDefault(x => x.children.Count(y => y.name == volToFind.name && x.volType == "dataset") > 0);
             if (toRet != null)
                 return toRet;
 
@@ -422,7 +435,6 @@ namespace hypervisors
             iscsiExtent created = JsonConvert.DeserializeObject<iscsiExtent>(HTTPResponse);
 
             return created;
-            
         }
 
         public override List<iscsiPortal> getPortals()
@@ -439,8 +451,8 @@ namespace hypervisors
 
         public override snapshot createSnapshot(string dataset, string name)
         {
-            string payload = String.Format("{{\"dataset\": \"{0}\", " + 
-                                            "\"name\": \"{1}\" " +
+            string payload = String.Format("{{\"dataset\": \"{0}\", " +
+                                           "\"name\": \"{1}\" " +
                                            "}}", dataset, name);
 
             string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/", "post", HttpStatusCode.Created, payload).text;
@@ -593,7 +605,6 @@ namespace hypervisors
 
         [JsonProperty("children")]
         public List<volume> children { get; set; }
-
     }
 
     public class iscsiExtent

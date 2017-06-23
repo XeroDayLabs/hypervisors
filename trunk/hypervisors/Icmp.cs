@@ -38,6 +38,7 @@ using System.Net.Sockets;
 using System.Threading;
 
 // <summary>The System.Net namespace provides a simple programming interface for many of the protocols used on networks today.</summary>
+
 namespace Org.Mentalis.Network
 {
     /// <summary>
@@ -56,6 +57,7 @@ namespace Org.Mentalis.Network
         {
             Host = host;
         }
+
         /// <summary>
         /// Generates the Echo message to send.
         /// </summary>
@@ -63,15 +65,16 @@ namespace Org.Mentalis.Network
         protected byte[] GetEchoMessageBuffer()
         {
             EchoMessage message = new EchoMessage();
-            message.Type = 8;   // ICMP echo
-            message.Data = new Byte[1300];  // aliz modification: this is grossly oversized to prevent the socketException I'm seeing: "... the buffer used to receive a datagram into was smaller than the datagram itself"
+            message.Type = 8; // ICMP echo
+            message.Data = new Byte[1300]; // aliz modification: this is grossly oversized to prevent the socketException I'm seeing: "... the buffer used to receive a datagram into was smaller than the datagram itself"
             for (int i = 0; i < 32; i++)
             {
-                message.Data[i] = 32;   // Send spaces
+                message.Data[i] = 32; // Send spaces
             }
             message.CheckSum = message.GetChecksum();
             return message.GetObjectBytes();
         }
+
         /// <summary>
         /// Initiates an ICMP ping with a timeout of 1000 milliseconds.
         /// </summary>
@@ -95,7 +98,7 @@ namespace Org.Mentalis.Network
 
         public TimeSpan Ping(TimeSpan timeout)
         {
-            return Ping((int)timeout.TotalMilliseconds);
+            return Ping((int) timeout.TotalMilliseconds);
         }
 
         /// <summary>
@@ -137,7 +140,7 @@ namespace Org.Mentalis.Network
                     }
                 }
                 buffer = new byte[buffer.Length + 20];
-                socketDataResult res = new socketDataResult() { socket = ClientSocket };
+                socketDataResult res = new socketDataResult() {socket = ClientSocket};
                 IAsyncResult hnd = ClientSocket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, cb, res);
 
                 if (!hnd.AsyncWaitHandle.WaitOne(timeout))
@@ -154,7 +157,7 @@ namespace Org.Mentalis.Network
                 ClientSocket.Close();
 
                 if (res.err != SocketError.Success && res.err != SocketError.MessageSize)
-                    throw new SocketException((int)res.err);
+                    throw new SocketException((int) res.err);
                 IcmpMessage response = IcmpMessage.fromBytes(buffer);
                 if (!Equals(response.src, Host) || response.Type != 0 || response.Type != 0)
                     return TimeSpan.MaxValue;
@@ -171,7 +174,7 @@ namespace Org.Mentalis.Network
 
         private static void clientSocketData(IAsyncResult ar)
         {
-            socketDataResult res = (socketDataResult)ar.AsyncState;
+            socketDataResult res = (socketDataResult) ar.AsyncState;
             try
             {
                 res.socket.EndReceive(ar, out res.err);
@@ -191,10 +194,7 @@ namespace Org.Mentalis.Network
         /// <exception cref="ArgumentNullException">The specified value is null (Nothing in VB.NET).</exception>
         protected IPAddress Host
         {
-            get
-            {
-                return m_Host;
-            }
+            get { return m_Host; }
             set
             {
                 if (value == null)
@@ -202,24 +202,21 @@ namespace Org.Mentalis.Network
                 m_Host = value;
             }
         }
+
         /// <summary>
         /// Gets or sets the time when the ping began/begins.
         /// </summary>
         /// <value>A DateTime object that specifies when the ping began.</value>
         protected DateTime StartTime
         {
-            get
-            {
-                return m_StartTime;
-            }
-            set
-            {
-                m_StartTime = value;
-            }
+            get { return m_StartTime; }
+            set { m_StartTime = value; }
         }
+
         // Private variables
         /// <summary>Stores the value of the Host property.</summary>
         private IPAddress m_Host;
+
         /// <summary>Stores the value of the StartTime property.</summary>
         private DateTime m_StartTime;
     }
@@ -232,52 +229,40 @@ namespace Org.Mentalis.Network
         /// <summary>
         /// Initializes a new IcmpMessage instance.
         /// </summary>
-        public IcmpMessage() { }
+        public IcmpMessage()
+        {
+        }
+
         /// <summary>
         /// Gets or sets the type of the message.
         /// </summary>
         /// <value>A byte that specifies the type of the message.</value>
         public byte Type
         {
-            get
-            {
-                return m_Type;
-            }
-            set
-            {
-                m_Type = value;
-            }
+            get { return m_Type; }
+            set { m_Type = value; }
         }
+
         /// <summary>
         /// Gets or sets the message code.
         /// </summary>
         /// <value>A byte that specifies the message code.</value>
         public byte Code
         {
-            get
-            {
-                return m_Code;
-            }
-            set
-            {
-                m_Code = value;
-            }
+            get { return m_Code; }
+            set { m_Code = value; }
         }
+
         /// <summary>
         /// Gets or sets the chacksum for this message.
         /// </summary>
         /// <value>An unsigned short that holds the checksum of this message.</value>
         public ushort CheckSum
         {
-            get
-            {
-                return m_CheckSum;
-            }
-            set
-            {
-                m_CheckSum = value;
-            }
+            get { return m_CheckSum; }
+            set { m_CheckSum = value; }
         }
+
         /// <summary>
         /// Serializes the object into an array of bytes.
         /// </summary>
@@ -290,6 +275,7 @@ namespace Org.Mentalis.Network
             Array.Copy(BitConverter.GetBytes(CheckSum), 0, ret, 2, 2);
             return ret;
         }
+
         /// <summary>
         /// Calculates the checksum of this message.
         /// </summary>
@@ -309,13 +295,16 @@ namespace Org.Mentalis.Network
             // Do a little shuffling
             sum = (sum >> 16) + (sum & 0xFFFF);
             sum += (sum >> 16);
-            return (ushort)(~sum);
+            return (ushort) (~sum);
         }
+
         // Private variables
         /// <summary>Holds the value of the Type property.</summary>
         private byte m_Type = 0;
+
         /// <summary>Holds the value of the Code property.</summary>
         private byte m_Code = 0;
+
         /// <summary>Holds the value of the CheckSum property.</summary>
         private ushort m_CheckSum = 0;
 
@@ -344,7 +333,7 @@ namespace Org.Mentalis.Network
 
             toRet.Type = buffer[0x14];
             toRet.Code = buffer[0x15];
-            toRet.CheckSum = (ushort)((ushort)(buffer[0x16] << 8) + buffer[0x17]);
+            toRet.CheckSum = (ushort) ((ushort) (buffer[0x16] << 8) + buffer[0x17]);
 
             return toRet;
         }
@@ -358,37 +347,30 @@ namespace Org.Mentalis.Network
         /// <summary>
         /// Initializes a new InformationMessage instance.
         /// </summary>
-        public InformationMessage() { }
+        public InformationMessage()
+        {
+        }
+
         /// <summary>
         /// Gets or sets the identification number.
         /// </summary>
         /// <value>An unsigned short that holds the identification number of this message.</value>
         public ushort Identifier
         {
-            get
-            {
-                return m_Identifier;
-            }
-            set
-            {
-                m_Identifier = value;
-            }
+            get { return m_Identifier; }
+            set { m_Identifier = value; }
         }
+
         /// <summary>
         /// Gets or sets the sequence number.
         /// </summary>
         /// <value>An unsigned short that holds the sequence number of this message.</value>
         public ushort SequenceNumber
         {
-            get
-            {
-                return m_SequenceNumber;
-            }
-            set
-            {
-                m_SequenceNumber = value;
-            }
+            get { return m_SequenceNumber; }
+            set { m_SequenceNumber = value; }
         }
+
         /// <summary>
         /// Serializes the object into an array of bytes.
         /// </summary>
@@ -401,9 +383,11 @@ namespace Org.Mentalis.Network
             Array.Copy(BitConverter.GetBytes(SequenceNumber), 0, ret, 6, 2);
             return ret;
         }
+
         // Private variables
         /// <summary>Holds the value of the Identifier property.</summary>
         private ushort m_Identifier = 0;
+
         /// <summary>Holds the value of the SequenceNumber property.</summary>
         private ushort m_SequenceNumber = 0;
     }
@@ -416,22 +400,20 @@ namespace Org.Mentalis.Network
         /// <summary>
         /// Initializes a new EchoMessage instance.
         /// </summary>
-        public EchoMessage() { }
+        public EchoMessage()
+        {
+        }
+
         /// <summary>
         /// Gets or sets the data of this message.
         /// </summary>
         /// <value>An array of bytes that represents the data of this message.</value>
         public byte[] Data
         {
-            get
-            {
-                return m_Data;
-            }
-            set
-            {
-                m_Data = value;
-            }
+            get { return m_Data; }
+            set { m_Data = value; }
         }
+
         /// <summary>
         /// Serializes the object into an array of bytes.
         /// </summary>
@@ -447,6 +429,7 @@ namespace Org.Mentalis.Network
                 Array.Copy(Data, 0, ret, 8, Data.Length);
             return ret;
         }
+
         // Private variables
         /// <summary>Holds the value of the Data property.</summary>
         private byte[] m_Data;

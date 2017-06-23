@@ -24,7 +24,7 @@ namespace hypervisors
         public snapshot shotToRestore;
         public iscsiExtent extent;
     }
-    
+
     public class hypervisor_iLo : hypervisorWithSpec<hypSpec_iLo>
     {
         private static Dictionary<string, refCount<hypervisor_iLo_HTTP>> _ilos = new Dictionary<string, refCount<hypervisor_iLo_HTTP>>();
@@ -105,7 +105,7 @@ namespace hypervisors
             TimeSpan remaining = connectDeadline - DateTime.Now;
             if (remaining < TimeSpan.FromSeconds(0))
                 throw new TimeoutException();
-            WaitForStatus(true, remaining );
+            WaitForStatus(true, remaining);
 
             // Now wait for it to be up enough that we can psexec to it.
             doWithRetryOnSomeExceptions(() =>
@@ -166,11 +166,8 @@ namespace hypervisors
             if (_executor == null)
                 throw new NotSupportedException();
 
-            return doWithRetryOnSomeExceptions( () =>
-                {
-                    return _executor.getFileFromGuest(srcpath);
-                }, timeout
-            );
+            return doWithRetryOnSomeExceptions(() => { return _executor.getFileFromGuest(srcpath); }, timeout
+                );
         }
 
         public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = default(DateTime))
@@ -237,7 +234,7 @@ namespace hypervisors
 
             lock (ilo)
             {
-                ilo.tgt.Dispose();                
+                ilo.tgt.Dispose();
             }
 
             base.Dispose(disposing);

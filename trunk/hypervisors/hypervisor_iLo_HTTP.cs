@@ -37,7 +37,7 @@ namespace hypervisors
             if (getPowerStatus() == false)
                 return;
 
-            doRequest("host_power", "hold_power_button");            
+            doRequest("host_power", "hold_power_button");
         }
 
         private string doRequest(string pageName, string methodName, bool isPost = true)
@@ -95,7 +95,7 @@ namespace hypervisors
 
             try
             {
-                using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                using (HttpWebResponse resp = (HttpWebResponse) req.GetResponse())
                 {
                     using (Stream respStream = resp.GetResponseStream())
                     {
@@ -120,7 +120,7 @@ namespace hypervisors
             }
             catch (WebException e)
             {
-                HttpWebResponse resp = ((HttpWebResponse)e.Response);
+                HttpWebResponse resp = ((HttpWebResponse) e.Response);
                 using (Stream respStream = e.Response.GetResponseStream())
                 {
                     using (StreamReader respStreamReader = new StreamReader(respStream))
@@ -134,7 +134,7 @@ namespace hypervisors
                                 throw new iloNoSessionException(result.details);
                         }
 
-                        throw new iloException("iLo API call failed, status " + ((HttpWebResponse)e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                        throw new iloException("iLo API call failed, status " + ((HttpWebResponse) e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
                     }
                 }
             }
@@ -184,7 +184,7 @@ namespace hypervisors
 
             try
             {
-                using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                using (HttpWebResponse resp = (HttpWebResponse) req.GetResponse())
                 {
                     using (Stream respStream = resp.GetResponseStream())
                     {
@@ -210,14 +210,14 @@ namespace hypervisors
                     using (StreamReader respStreamReader = new StreamReader(respStream))
                     {
                         string contentString = respStreamReader.ReadToEnd();
-                        throw new Exception("iLo API call failed, status " + ((HttpWebResponse)e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                        throw new Exception("iLo API call failed, status " + ((HttpWebResponse) e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
                     }
                 }
             }
             catch (Exception)
             {
                 throw new Exception("iLo API call failed, no response");
-            }            
+            }
         }
 
         public void logout()
@@ -314,7 +314,7 @@ namespace hypervisors
         public string label;
         public string location;
         public string status;
-        public string speed;        
+        public string speed;
     }
 
     public class ilo_resp_healthfans
@@ -403,11 +403,17 @@ namespace hypervisors
 
     public class iloException : Exception
     {
-        public iloException(string msg) : base(msg) { }
+        public iloException(string msg)
+            : base(msg)
+        {
+        }
     }
 
     public class iloNoSessionException : iloException
     {
-        public iloNoSessionException(string msg) : base(msg) { }
+        public iloNoSessionException(string msg)
+            : base(msg)
+        {
+        }
     }
 }

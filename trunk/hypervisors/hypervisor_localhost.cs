@@ -14,15 +14,13 @@ namespace hypervisors
         public override void connect()
         {
         }
-        
+
         public override void powerOn(DateTime deadline = default(DateTime))
         {
-
         }
 
         public override void powerOff(DateTime deadline = default(DateTime))
         {
-
         }
 
         public override void copyToGuest(string dstpath, string srcpath)
@@ -47,7 +45,7 @@ namespace hypervisors
 
             if (deadline == default(DateTime))
                 deadline = DateTime.Now + TimeSpan.FromDays(7);
-            
+
             ProcessStartInfo ps = new ProcessStartInfo(toExecute, args);
             ps.UseShellExecute = false;
             ps.RedirectStandardError = true;
@@ -85,7 +83,7 @@ namespace hypervisors
 
         public override void mkdir(string newDir)
         {
-            Directory.CreateDirectory(newDir);            
+            Directory.CreateDirectory(newDir);
         }
     }
 
@@ -108,7 +106,7 @@ namespace hypervisors
 
         public void Dispose()
         {
-           _proc.Dispose();
+            _proc.Dispose();
         }
     }
 }
