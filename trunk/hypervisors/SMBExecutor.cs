@@ -149,13 +149,16 @@ namespace hypervisors
             candidates.AddRange(new string[]
             {
                 // Chocolatey installs to this path by default, but also installs the 64-bit version by default.
-                @"C:\ProgramData\chocolatey\bin\PsExec.exe",
-                @"C:\ProgramData\chocolatey\bin\PsExec64.exe"
+                @"C:\ProgramData\chocolatey\bin",
+                @"C:\ProgramData\chocolatey\bin"
             }
                 );
             foreach (string candidatePath in candidates)
             {
-                if (File.Exists(candidatePath))
+                string psExecPath32 = Path.Combine(candidatePath, "psexec.exe");
+                string psExecPath64 = Path.Combine(candidatePath, "psexec64.exe");
+
+                if (File.Exists(psExecPath32) || File.Exists(psExecPath64))
                     return candidatePath;
             }
 
@@ -228,7 +231,7 @@ namespace hypervisors
 
         public override void copyToGuest(string dstPath, string srcPath)
         {
-            if (!srcPath.ToLower().StartsWith("c:"))
+            if (!dstPath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
 
             string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, dstPath.Substring(2));
