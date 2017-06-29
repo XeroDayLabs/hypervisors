@@ -158,8 +158,10 @@ namespace hypervisors
                 string psExecPath32 = Path.Combine(candidatePath, "psexec.exe");
                 string psExecPath64 = Path.Combine(candidatePath, "psexec64.exe");
 
-                if (File.Exists(psExecPath32) || File.Exists(psExecPath64))
-                    return candidatePath;
+                if (File.Exists(psExecPath32))
+                    return psExecPath32;
+                if (File.Exists(psExecPath64))
+                    return psExecPath64;
             }
 
             throw new Exception("PSExec not found. Put it in your system PATH or install via chocolatey ('choco install sysinternals').");
