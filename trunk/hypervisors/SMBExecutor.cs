@@ -235,6 +235,8 @@ namespace hypervisors
         {
             if (!dstPath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
+            if (!File.Exists(srcPath))
+                throw new Exception("src file not found");
 
             string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, dstPath.Substring(2));
             if (destUNC.EndsWith("\\"))

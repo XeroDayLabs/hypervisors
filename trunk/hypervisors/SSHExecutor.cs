@@ -35,6 +35,9 @@ namespace hypervisors
 
         public override void copyToGuest(string dstpath, string srcpath)
         {
+            if (!File.Exists(srcpath))
+                throw new Exception("src file not found");
+
             using (SftpClient client = new SftpClient(inf))
             {
                 client.Connect();

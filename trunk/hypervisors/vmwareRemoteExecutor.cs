@@ -39,6 +39,9 @@ namespace hypervisors
 
         public override void copyToGuest(string dstpath, string srcpath)
         {
+            if (!File.Exists(srcpath))
+                throw new Exception("src file not found");
+
             NamePasswordAuthentication Auth = new NamePasswordAuthentication
             {
                 Username = _spec.kernelVMUsername,
