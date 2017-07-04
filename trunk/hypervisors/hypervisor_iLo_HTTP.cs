@@ -126,7 +126,6 @@ namespace hypervisors
                     using (StreamReader respStreamReader = new StreamReader(respStream))
                     {
                         string contentString = respStreamReader.ReadToEnd();
-
                         if (resp.StatusCode == HttpStatusCode.Forbidden)
                         {
                             ilo_resp_error result = JsonConvert.DeserializeObject<ilo_resp_error>(contentString);
@@ -154,7 +153,7 @@ namespace hypervisors
                     _connect();
                     return;
                 }
-                catch (Exception)
+                catch (iloException)
                 {
                     if (retriesLeft-- == 0)
                         throw;
@@ -193,7 +192,7 @@ namespace hypervisors
                             string contentString = respStreamReader.ReadToEnd();
 
                             if (resp.StatusCode != HttpStatusCode.OK)
-                                throw new Exception("iLo API call failed, status " + resp.StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                                throw new iloException("iLo API call failed, status " + resp.StatusCode + ", URL " + url + " HTTP response body " + contentString);
 
                             ilo_resp_login result = JsonConvert.DeserializeObject<ilo_resp_login>(contentString);
 
@@ -202,21 +201,28 @@ namespace hypervisors
                     }
                 }
             }
-
             catch (WebException e)
             {
                 using (Stream respStream = e.Response.GetResponseStream())
                 {
                     using (StreamReader respStreamReader = new StreamReader(respStream))
                     {
+                        if ((e.Response is HttpWebResponse) &&
+                            ((HttpWebResponse) e.Response).StatusCode == HttpStatusCode.Forbidden)
+                        {
+                            // Either our login details are incorrect, or we have failed login so many times that the iLo has blocked this IP
+                            // for a period of time.
+                            throw new nonRetryableIloException();
+                        }
+
                         string contentString = respStreamReader.ReadToEnd();
-                        throw new Exception("iLo API call failed, status " + ((HttpWebResponse) e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                        throw new iloException("iLo API call failed, status " + ((HttpWebResponse) e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                throw new Exception("iLo API call failed, no response");
+                throw new iloException(e);
             }
         }
 
@@ -286,6 +292,10 @@ namespace hypervisors
                 // .. oh well ..
             }
         }
+    }
+
+    public class nonRetryableIloException : Exception
+    {
     }
 
     public class NoCheckCertPolicy : ICertificatePolicy
@@ -406,6 +416,12 @@ namespace hypervisors
         public iloException(string msg)
             : base(msg)
         {
+        }
+
+        public iloException(Exception innerException)
+            : base("see innerException", innerException)
+        {
+
         }
     }
 
