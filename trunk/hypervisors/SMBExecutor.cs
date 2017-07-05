@@ -249,10 +249,7 @@ namespace hypervisors
                 {
                     using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
                     {
-                        if (File.Exists(destUNC))
-                            break;
-                        // race condition here?
-                        System.IO.File.Copy(srcPath, destUNC);
+                        File.Copy(srcPath, destUNC, true);
                     }
                     break;
                 }
