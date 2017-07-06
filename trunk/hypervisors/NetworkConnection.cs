@@ -29,11 +29,14 @@ namespace hypervisors
                 ? credentials.UserName
                 : string.Format(@"{0}\{1}", credentials.Domain, credentials.UserName);
 
-            int result = WNetAddConnection2(
-                netResource,
-                credentials.Password,
-                userName,
-                0);
+            int result = WNetAddConnection2(netResource, credentials.Password, userName, 0);
+
+            // If this returns 1219 - ERROR_SESSION_CREDENTIAL_CONFLICT - then we must disconnect the share and retry.
+            if (result == 1219)
+            {
+                WNetCancelConnection2(_networkName, 0, true);
+                result = WNetAddConnection2(netResource, credentials.Password, userName, 0);
+            }
 
             if (result != 0)
             {
