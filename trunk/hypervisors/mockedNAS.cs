@@ -4,6 +4,7 @@ using System.Linq;
 
 namespace hypervisors
 {
+
     public class mockedNAS : NASAccess
     {
         public List<mockedCall> events = new List<mockedCall>();
@@ -17,7 +18,7 @@ namespace hypervisors
         private List<volume> volumes = new List<volume>();
 
         Random idGen = new Random('1');
-
+        
         public override iscsiTargetToExtentMapping addISCSITargetToExtent(int iscsiTarget, iscsiExtent newExtent)
         {
             lock (events)
@@ -362,11 +363,17 @@ namespace hypervisors
 
     }
 
+    [Serializable]
     public class mockedCall
     {
         public DateTime timestamp;
         public string message;
         public string functionName;
+
+        public mockedCall()
+        {
+            // For XML de/ser
+        }
 
         public mockedCall(string newFunctionName)
         {
