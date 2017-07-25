@@ -17,7 +17,7 @@ namespace hypervisors
         {
             _networkName = networkName;
 
-            var netResource = new NetResource()
+            NetResource netResource = new NetResource()
             {
                 Scope = ResourceScope.GlobalNetwork,
                 ResourceType = ResourceType.Disk,
@@ -25,15 +25,18 @@ namespace hypervisors
                 RemoteName = networkName
             };
 
-            var userName = string.IsNullOrEmpty(credentials.Domain)
+            string userName = string.IsNullOrEmpty(credentials.Domain)
                 ? credentials.UserName
                 : string.Format(@"{0}\{1}", credentials.Domain, credentials.UserName);
 
-            var result = WNetAddConnection2(
-                netResource,
-                credentials.Password,
-                userName,
-                0);
+            int result = WNetAddConnection2(netResource, credentials.Password, userName, 0);
+
+            // If this returns 1219 - ERROR_SESSION_CREDENTIAL_CONFLICT - then we must disconnect the share and retry.
+            if (result == 1219)
+            {
+                WNetCancelConnection2(_networkName, 0, true);
+                result = WNetAddConnection2(netResource, credentials.Password, userName, 0);
+            }
 
             if (result != 0)
             {
@@ -57,7 +60,7 @@ namespace hypervisors
             WNetCancelConnection2(_networkName, 0, true);
         }
 
-        [DllImport("mpr.dll", SetLastError =  true)]
+        [DllImport("mpr.dll", SetLastError = true)]
         private static extern int WNetAddConnection2(NetResource netResource, string password, string username, int flags);
 
         [DllImport("mpr.dll", SetLastError = true)]

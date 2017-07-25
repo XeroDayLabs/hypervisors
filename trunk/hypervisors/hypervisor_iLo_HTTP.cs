@@ -37,7 +37,7 @@ namespace hypervisors
             if (getPowerStatus() == false)
                 return;
 
-            doRequest("host_power", "hold_power_button");            
+            doRequest("host_power", "hold_power_button");
         }
 
         private string doRequest(string pageName, string methodName, bool isPost = true)
@@ -95,7 +95,7 @@ namespace hypervisors
 
             try
             {
-                using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                using (HttpWebResponse resp = (HttpWebResponse) req.GetResponse())
                 {
                     using (Stream respStream = resp.GetResponseStream())
                     {
@@ -120,13 +120,12 @@ namespace hypervisors
             }
             catch (WebException e)
             {
-                HttpWebResponse resp = ((HttpWebResponse)e.Response);
+                HttpWebResponse resp = ((HttpWebResponse) e.Response);
                 using (Stream respStream = e.Response.GetResponseStream())
                 {
                     using (StreamReader respStreamReader = new StreamReader(respStream))
                     {
                         string contentString = respStreamReader.ReadToEnd();
-
                         if (resp.StatusCode == HttpStatusCode.Forbidden)
                         {
                             ilo_resp_error result = JsonConvert.DeserializeObject<ilo_resp_error>(contentString);
@@ -134,7 +133,7 @@ namespace hypervisors
                                 throw new iloNoSessionException(result.details);
                         }
 
-                        throw new iloException("iLo API call failed, status " + ((HttpWebResponse)e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                        throw new iloException("iLo API call failed, status " + ((HttpWebResponse) e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
                     }
                 }
             }
@@ -154,7 +153,7 @@ namespace hypervisors
                     _connect();
                     return;
                 }
-                catch (Exception)
+                catch (iloException)
                 {
                     if (retriesLeft-- == 0)
                         throw;
@@ -184,7 +183,7 @@ namespace hypervisors
 
             try
             {
-                using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                using (HttpWebResponse resp = (HttpWebResponse) req.GetResponse())
                 {
                     using (Stream respStream = resp.GetResponseStream())
                     {
@@ -193,7 +192,7 @@ namespace hypervisors
                             string contentString = respStreamReader.ReadToEnd();
 
                             if (resp.StatusCode != HttpStatusCode.OK)
-                                throw new Exception("iLo API call failed, status " + resp.StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                                throw new iloException("iLo API call failed, status " + resp.StatusCode + ", URL " + url + " HTTP response body " + contentString);
 
                             ilo_resp_login result = JsonConvert.DeserializeObject<ilo_resp_login>(contentString);
 
@@ -202,22 +201,29 @@ namespace hypervisors
                     }
                 }
             }
-
             catch (WebException e)
             {
                 using (Stream respStream = e.Response.GetResponseStream())
                 {
                     using (StreamReader respStreamReader = new StreamReader(respStream))
                     {
+                        if ((e.Response is HttpWebResponse) &&
+                            ((HttpWebResponse) e.Response).StatusCode == HttpStatusCode.Forbidden)
+                        {
+                            // Either our login details are incorrect, or we have failed login so many times that the iLo has blocked this IP
+                            // for a period of time.
+                            throw new nonRetryableIloException();
+                        }
+
                         string contentString = respStreamReader.ReadToEnd();
-                        throw new Exception("iLo API call failed, status " + ((HttpWebResponse)e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
+                        throw new iloException("iLo API call failed, status " + ((HttpWebResponse) e.Response).StatusCode + ", URL " + url + " HTTP response body " + contentString);
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                throw new Exception("iLo API call failed, no response");
-            }            
+                throw new iloException(e);
+            }
         }
 
         public void logout()
@@ -288,6 +294,10 @@ namespace hypervisors
         }
     }
 
+    public class nonRetryableIloException : Exception
+    {
+    }
+
     public class NoCheckCertPolicy : ICertificatePolicy
     {
         public bool CheckValidationResult(ServicePoint srvPoint, X509Certificate certificate, WebRequest request, int certificateProblem)
@@ -314,7 +324,7 @@ namespace hypervisors
         public string label;
         public string location;
         public string status;
-        public string speed;        
+        public string speed;
     }
 
     public class ilo_resp_healthfans
@@ -403,11 +413,23 @@ namespace hypervisors
 
     public class iloException : Exception
     {
-        public iloException(string msg) : base(msg) { }
+        public iloException(string msg)
+            : base(msg)
+        {
+        }
+
+        public iloException(Exception innerException)
+            : base("see innerException", innerException)
+        {
+
+        }
     }
 
     public class iloNoSessionException : iloException
     {
-        public iloNoSessionException(string msg) : base(msg) { }
+        public iloNoSessionException(string msg)
+            : base(msg)
+        {
+        }
     }
 }

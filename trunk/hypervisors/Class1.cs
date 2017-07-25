@@ -37,13 +37,13 @@ namespace hypervisors
             foreach (PSDataCollection<ErrorRecord> err in psContext.Streams.Error)
             {
                 foreach (ErrorRecord errRecord in err)
-                    errText.AppendLine( errRecord.ToString());
+                    errText.AppendLine(errRecord.ToString());
             }
             text = errText.ToString();
         }
 
         public powerShellException(string msg)
-            :base(msg)
+            : base(msg)
         {
         }
 
@@ -59,7 +59,8 @@ namespace hypervisors
         public readonly string stderr;
         public readonly int exitCode;
 
-        public psExecException(string stderr, int exitCode) : base("PSExec error " + exitCode)
+        public psExecException(string stderr, int exitCode)
+            : base("PSExec error " + exitCode)
         {
             this.stderr = stderr;
             this.exitCode = exitCode;
@@ -69,7 +70,6 @@ namespace hypervisors
         protected psExecException(SerializationInfo info, StreamingContext ctx)
             : base(info, ctx)
         {
-            
         }
 
         public override string Message
@@ -77,7 +77,6 @@ namespace hypervisors
             get { return "code " + exitCode + "; stderr '" + stderr + "'"; }
         }
     }
-
 
 
     [StructLayout(LayoutKind.Sequential)]
@@ -125,9 +124,4 @@ namespace hypervisors
         Tree = 0x0a,
         Ndscontainer = 0x0b
     }
-
-
 }
-
-
-

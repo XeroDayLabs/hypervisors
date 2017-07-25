@@ -13,9 +13,9 @@ namespace hypervisors
         public string kernelVMName;
 
         public hypSpec_vmware(
-            string kernelVmName, 
-            string kernelVmServer, string kernelVmServerUsername, string kernelVmServerPassword, 
-            string kernelVmUsername, string kernelVmPassword, 
+            string kernelVmName,
+            string kernelVmServer, string kernelVmServerUsername, string kernelVmServerPassword,
+            string kernelVmUsername, string kernelVmPassword,
             string snapshotFriendlyName, string snapshotNASPath,
             ushort kernelDebugPort, string kernelVMKey, string vmIPIOrHostname)
             : base(vmIPIOrHostname, snapshotFriendlyName, snapshotNASPath, kernelDebugPort, kernelVMKey)

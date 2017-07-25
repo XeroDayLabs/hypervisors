@@ -40,7 +40,7 @@ namespace hypervisors
         {
             executionResult res = startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo teststring");
             if (!res.stdout.Contains("teststring"))
-                throw new hypervisorExecutionException_retryable();            
+                throw new hypervisorExecutionException_retryable();
         }
 
         public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
@@ -147,16 +147,21 @@ namespace hypervisors
             List<string> candidates = new List<string>();
             candidates.AddRange(Environment.GetEnvironmentVariable("PATH").Split(';')); // Check it out, an old-school injection here! Can you spot it?
             candidates.AddRange(new string[]
-                {
-                    // Chocolatey installs to this path by default, but also installs the 64-bit version by default.
-                    @"C:\ProgramData\chocolatey\bin\PsExec.exe",
-                    @"C:\ProgramData\chocolatey\bin\PsExec64.exe"
-                }
-            );
+            {
+                // Chocolatey installs to this path by default, but also installs the 64-bit version by default.
+                @"C:\ProgramData\chocolatey\bin",
+                @"C:\ProgramData\chocolatey\bin"
+            }
+                );
             foreach (string candidatePath in candidates)
             {
-                if (File.Exists(candidatePath))
-                    return candidatePath;
+                string psExecPath32 = Path.Combine(candidatePath, "psexec.exe");
+                string psExecPath64 = Path.Combine(candidatePath, "psexec64.exe");
+
+                if (File.Exists(psExecPath32))
+                    return psExecPath32;
+                if (File.Exists(psExecPath64))
+                    return psExecPath64;
             }
 
             throw new Exception("PSExec not found. Put it in your system PATH or install via chocolatey ('choco install sysinternals').");
@@ -179,7 +184,7 @@ namespace hypervisors
                 }
                 catch (Win32Exception e)
                 {
-                    if (e.NativeErrorCode == 1219)  // "multiple connections to a server are not allowed"
+                    if (e.NativeErrorCode == 1219) // "multiple connections to a server are not allowed"
                         throw;
                     if (retries-- == 0)
                         throw;
@@ -227,9 +232,11 @@ namespace hypervisors
         }
 
         public override void copyToGuest(string dstPath, string srcPath)
-        {   
-            if (!srcPath.ToLower().StartsWith("c:"))
+        {
+            if (!dstPath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
+            if (!File.Exists(srcPath))
+                throw new Exception("src file not found");
 
             string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, dstPath.Substring(2));
             if (destUNC.EndsWith("\\"))
@@ -242,10 +249,7 @@ namespace hypervisors
                 {
                     using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
                     {
-                        if (File.Exists(destUNC))
-                            break;
-                        // race condition here?
-                        System.IO.File.Copy(srcPath, destUNC);
+                        File.Copy(srcPath, destUNC, true);
                     }
                     break;
                 }
@@ -329,11 +333,19 @@ namespace hypervisors
     [Serializable]
     public class hypervisorExecutionException : Exception
     {
-        public hypervisorExecutionException() : base() { }
+        public hypervisorExecutionException()
+            : base()
+        {
+        }
 
-        public hypervisorExecutionException(string a) : base(a) { }
+        public hypervisorExecutionException(string a)
+            : base(a)
+        {
+        }
     }
 
     [Serializable]
-    public class hypervisorExecutionException_retryable : Exception { }
+    public class hypervisorExecutionException_retryable : Exception
+    {
+    }
 }

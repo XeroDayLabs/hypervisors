@@ -26,7 +26,6 @@ namespace hypervisors
             // Keyboard auth is the only supported scheme for the iLos.
             PasswordAuthenticationMethod passwordAuth = new PasswordAuthenticationMethod(_hostUsername, _hostPassword);
             inf = new ConnectionInfo(_hostIp, _hostUsername, interactiveAuth, passwordAuth);
-
         }
 
         public override void mkdir(string newDir)
@@ -36,6 +35,9 @@ namespace hypervisors
 
         public override void copyToGuest(string dstpath, string srcpath)
         {
+            if (!File.Exists(srcpath))
+                throw new Exception("src file not found");
+
             using (SftpClient client = new SftpClient(inf))
             {
                 client.Connect();
@@ -71,11 +73,11 @@ namespace hypervisors
                 using (SshClient client = new SshClient(inf))
                 {
                     client.Connect();
-                    
+
                     SshCommand returnVal = client.RunCommand(string.Format("{0} {1}", toExecute, args));
 
                     Debug.WriteLine("{0} : Command '{1}' args '{2}' retcode {3} stdout {4} stderr {5}", _hostIp, toExecute, args, returnVal.ExitStatus, returnVal.Result, returnVal.Error);
-                    
+
                     return new executionResult(returnVal);
                 }
             }

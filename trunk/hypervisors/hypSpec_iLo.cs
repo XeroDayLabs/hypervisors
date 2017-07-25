@@ -3,12 +3,12 @@ using System;
 namespace hypervisors
 {
     [Serializable]
-    public class hypSpec_iLo :  hypSpec_withWindbgKernel
+    public class hypSpec_iLo : hypSpec_withWindbgKernel
     {
         public hypSpec_iLo(string hostIP,
-            string hostUsername, string hostPassword, 
+            string hostUsername, string hostPassword,
             string iloHostname, string iLoUsername, string iloPassword,
-            string iscsiServerIP, string iscsiServerUsername, string iscsiServerPassword, 
+            string iscsiServerIP, string iscsiServerUsername, string iscsiServerPassword,
             string snapshotName, string snapshotPath, UInt16 hostKernelDebugPort, string hostKernelDebugKey)
             : base(hostIP, snapshotName, snapshotPath, hostKernelDebugPort, hostKernelDebugKey)
         {
@@ -22,6 +22,7 @@ namespace hypervisors
             this.iscsiServerPassword = iscsiServerPassword;
             this.snapshotFullName = snapshotPath;
         }
+
         public string hostUsername;
         public string hostPassword;
         public string iLoHostname;

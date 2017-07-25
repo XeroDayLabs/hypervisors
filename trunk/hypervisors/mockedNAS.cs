@@ -360,7 +360,6 @@ namespace hypervisors
                 return new List<iscsiPortal>(portalList);
             }
         }
-
     }
 
     [Serializable]

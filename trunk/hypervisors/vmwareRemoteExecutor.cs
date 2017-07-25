@@ -29,7 +29,7 @@ namespace hypervisors
                 InteractiveSession = true
             };
 
-            GuestOperationsManager gom = (GuestOperationsManager)_vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
+            GuestOperationsManager gom = (GuestOperationsManager) _vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
             GuestAuthManager guestAuthManager = _vClient.GetView(gom.AuthManager, null) as GuestAuthManager;
             guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
             GuestFileManager GFM = _vClient.GetView(gom.FileManager, null) as GuestFileManager;
@@ -39,6 +39,9 @@ namespace hypervisors
 
         public override void copyToGuest(string dstpath, string srcpath)
         {
+            if (!File.Exists(srcpath))
+                throw new Exception("src file not found");
+
             NamePasswordAuthentication Auth = new NamePasswordAuthentication
             {
                 Username = _spec.kernelVMUsername,
@@ -46,7 +49,7 @@ namespace hypervisors
                 InteractiveSession = true
             };
 
-            GuestOperationsManager gom = (GuestOperationsManager)_vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
+            GuestOperationsManager gom = (GuestOperationsManager) _vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
             GuestAuthManager guestAuthManager = _vClient.GetView(gom.AuthManager, null) as GuestAuthManager;
             guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
             GuestFileManager GFM = _vClient.GetView(gom.FileManager, null) as GuestFileManager;
@@ -81,7 +84,7 @@ namespace hypervisors
                 InteractiveSession = true
             };
 
-            GuestOperationsManager gom = (GuestOperationsManager)_vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
+            GuestOperationsManager gom = (GuestOperationsManager) _vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
             GuestAuthManager guestAuthManager = _vClient.GetView(gom.AuthManager, null) as GuestAuthManager;
             guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
             GuestFileManager GFM = _vClient.GetView(gom.FileManager, null) as GuestFileManager;
@@ -105,16 +108,16 @@ namespace hypervisors
 
             execFileSet fileSet = prepareForExecution(toExecute, args, tempDir);
 
-            var Auth = new NamePasswordAuthentication
+            NamePasswordAuthentication Auth = new NamePasswordAuthentication
             {
                 Username = _spec.kernelVMUsername,
                 Password = _spec.kernelVMPassword,
                 InteractiveSession = true
             };
-            GuestOperationsManager gom = (GuestOperationsManager)_vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
-            GuestAuthManager guestAuthManager = (GuestAuthManager)_vClient.GetView(gom.AuthManager, null);
+            GuestOperationsManager gom = (GuestOperationsManager) _vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
+            GuestAuthManager guestAuthManager = (GuestAuthManager) _vClient.GetView(gom.AuthManager, null);
             guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
-            var guestProcessManager = _vClient.GetView(gom.ProcessManager, null) as GuestProcessManager;
+            GuestProcessManager guestProcessManager = _vClient.GetView(gom.ProcessManager, null) as GuestProcessManager;
             GuestProgramSpec progSpec = new GuestProgramSpec
             {
                 ProgramPath = fileSet.launcherPath,
@@ -130,7 +133,7 @@ namespace hypervisors
         {
             executionResult res = startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo teststring");
             if (!res.stdout.Contains("teststring"))
-                throw new hypervisorExecutionException_retryable();            
+                throw new hypervisorExecutionException_retryable();
         }
 
         public override void deleteFile(string toDelete)

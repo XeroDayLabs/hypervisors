@@ -34,7 +34,7 @@ namespace hypervisors
         /// the neccessary steps for configuring SMB on the client machine, if you're going to use it.
         /// </summary>
         private clientExecutionMethod _executionMethod;
-        
+
         /// <summary>
         /// The object that handles starting/stopping commands on the target, and also transferring files
         /// </summary>
@@ -108,7 +108,7 @@ namespace hypervisors
                     _underlyingVM.PowerOnVM(_underlyingVM.Runtime.Host);
                 }
             }, TimeSpan.FromSeconds(5), deadline - DateTime.Now);
-            
+
             // Wait for it to be ready
             if (_executionMethod == clientExecutionMethod.vmwaretools)
             {
@@ -152,15 +152,11 @@ namespace hypervisors
 
         public override void connect()
         {
-
         }
 
         public override void copyToGuest(string dstpath, string srcpath)
         {
-            doWithRetryOnSomeExceptions(() =>
-            {
-                _copyToGuest(dstpath, srcpath);
-            }, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1));
+            doWithRetryOnSomeExceptions(() => { _copyToGuest(dstpath, srcpath); }, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1));
         }
 
         private void _copyToGuest(string dstpath, string srcpath)
@@ -173,10 +169,7 @@ namespace hypervisors
             if (timeout == default(TimeSpan))
                 timeout = TimeSpan.FromSeconds(30);
 
-            return doWithRetryOnSomeExceptions(() =>
-            {
-                return executor.getFileFromGuest(srcpath);
-            }, TimeSpan.FromSeconds(10), timeout);
+            return doWithRetryOnSomeExceptions(() => { return executor.getFileFromGuest(srcpath); }, TimeSpan.FromSeconds(10), timeout);
         }
 
         public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = default(DateTime))
@@ -193,13 +186,10 @@ namespace hypervisors
         {
             return executor.startExecutableAsyncWithRetry(toExecute, args, workingDir);
         }
-        
+
         public override void mkdir(string newDir)
         {
-            doWithRetryOnSomeExceptions(() =>
-            {
-                executor.mkdir(newDir);
-            }, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1));
+            doWithRetryOnSomeExceptions(() => { executor.mkdir(newDir); }, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1));
         }
 
         public override hypSpec_vmware getConnectionSpec()
@@ -224,9 +214,9 @@ namespace hypervisors
 
     public class VMNotFoundException : Exception
     {
-        public VMNotFoundException(string msg) : base(msg)
+        public VMNotFoundException(string msg)
+            : base(msg)
         {
-            
         }
     }
 
@@ -239,8 +229,8 @@ namespace hypervisors
         private string _freeNASUsername;
         private string _freeNASPassword;
 
-        public hypervisor_vmware_FreeNAS(hypSpec_vmware spec, 
-            string freeNasip, string freeNasUsername, string freeNasPassword, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools) 
+        public hypervisor_vmware_FreeNAS(hypSpec_vmware spec,
+            string freeNasip, string freeNasUsername, string freeNasPassword, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
             : base(spec, newExecMethod)
         {
             _freeNASIP = freeNasip;
@@ -250,7 +240,7 @@ namespace hypervisors
 
         public override void restoreSnapshot()
         {
-            freeNASSnapshot.restoreSnapshot(this,_freeNASIP, _freeNASUsername, _freeNASPassword);
+            freeNASSnapshot.restoreSnapshot(this, _freeNASIP, _freeNASUsername, _freeNASPassword);
         }
     }
 
@@ -259,7 +249,7 @@ namespace hypervisors
     /// </summary>
     public class hypervisor_vmware : hypervisor_vmware_withoutSnapshots
     {
-        public hypervisor_vmware(hypSpec_vmware spec, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools) 
+        public hypervisor_vmware(hypSpec_vmware spec, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
             : base(spec, newExecMethod)
         {
         }
