@@ -50,14 +50,14 @@ namespace hypervisors
         }
 
 
-        public static T doWithRetryOnSomeExceptions<T>(Func<T> thingtoDo, TimeSpan retryDelay = default(TimeSpan), TimeSpan timeout = default(TimeSpan))
+        public static T doWithRetryOnSomeExceptions<T>(Func<T> thingtoDo, TimeSpan retryDelay = default(TimeSpan), TimeSpan timeout = default(TimeSpan), DateTime deadline = default (DateTime))
         {
             if (retryDelay == default(TimeSpan))
                 retryDelay = TimeSpan.FromSeconds(1);
-            DateTime deadline;
             if (timeout == default(TimeSpan))
             {
-                deadline = DateTime.MaxValue;
+                if (deadline == default(DateTime))
+                    deadline = DateTime.MaxValue;
             }
             else
             {
@@ -107,14 +107,14 @@ namespace hypervisors
         }
 
 
-        public static void doWithRetryOnSomeExceptions(System.Action thingtoDo, TimeSpan retry = default(TimeSpan), TimeSpan timeout = default(TimeSpan))
+        public static void doWithRetryOnSomeExceptions(System.Action thingtoDo, TimeSpan retry = default(TimeSpan), TimeSpan timeout = default(TimeSpan), DateTime deadline = default (DateTime))
         {
             doWithRetryOnSomeExceptions((() =>
             {
                 thingtoDo();
                 return 0; // Return a dummy value
             }),
-                retry, timeout);
+                retry, timeout, deadline);
         }
 
         public void copyToGuestFromBuffer(string dstpath, byte[] srcContents)
