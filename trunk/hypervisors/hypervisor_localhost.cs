@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 
 namespace hypervisors
 {
@@ -72,7 +73,7 @@ namespace hypervisors
             ps.RedirectStandardOutput = true;
             ps.WorkingDirectory = workingDir;
             Process proc = Process.Start(ps);
-            return new asycExeuctionResult_localhost(proc);
+            return new asyncExecutionResult_localhost(proc);
         }
 
         public override IAsyncExecutionResult startExecutableAsyncWithRetry(string toExecute, string args, string workingDir = null)
@@ -87,11 +88,11 @@ namespace hypervisors
         }
     }
 
-    public class asycExeuctionResult_localhost : IAsyncExecutionResult
+    public class asyncExecutionResult_localhost : IAsyncExecutionResult
     {
         private readonly Process _proc;
 
-        public asycExeuctionResult_localhost(Process proc)
+        public asyncExecutionResult_localhost(Process proc)
         {
             _proc = proc;
         }
@@ -106,6 +107,23 @@ namespace hypervisors
 
         public void Dispose()
         {
+            if (!_proc.HasExited)
+            {
+                _proc.Close();
+                if (!_proc.HasExited)
+                {
+                    Thread.Sleep(TimeSpan.FromSeconds(1));
+                    _proc.Kill();
+                    DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(2); 
+                    while (!_proc.HasExited)
+                    {
+                        if (DateTime.Now > deadline)
+                            throw new TimeoutException();
+                        Thread.Sleep(TimeSpan.FromSeconds(2));
+                    }
+                }
+            }
+
             _proc.Dispose();
         }
     }
