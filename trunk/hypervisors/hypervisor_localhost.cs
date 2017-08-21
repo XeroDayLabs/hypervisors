@@ -107,23 +107,25 @@ namespace hypervisors
 
         public void Dispose()
         {
-            if (!_proc.HasExited)
+            try
             {
-                _proc.Close();
                 if (!_proc.HasExited)
                 {
-                    Thread.Sleep(TimeSpan.FromSeconds(1));
                     _proc.Kill();
-                    DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(2); 
+                    DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(2);
                     while (!_proc.HasExited)
                     {
                         if (DateTime.Now > deadline)
                             throw new TimeoutException();
+                        _proc.Kill();
                         Thread.Sleep(TimeSpan.FromSeconds(2));
                     }
                 }
             }
-
+            catch (InvalidOperationException)
+            {
+                // ...
+            }
             _proc.Dispose();
         }
     }
