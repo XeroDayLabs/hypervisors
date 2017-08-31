@@ -30,23 +30,30 @@ namespace hypervisors
                 deadline = DateTime.Now + timeout;
 
             IAsyncExecutionResult resultInProgress = null;
-            while (resultInProgress == null)
+            try
             {
-                resultInProgress = startExecutableAsync(toExecute, args, workingDir);
+                while (resultInProgress == null)
+                {
+                    resultInProgress = startExecutableAsync(toExecute, args, workingDir);
 //	FIXME!!!
 //     This is causing an awful assembly load failure when it throws :/
 //     Disabling the timeout for now because I am waaay behind schedule already
 //                if (DateTime.Now > deadline)
 //                    throw new hypervisorExecutionException();
-                Thread.Sleep(3);
-            }
+                    Thread.Sleep(3);
+                }
 
-            while (true)
+                while (true)
+                {
+                    executionResult res = resultInProgress.getResultIfComplete();
+                    if (res != null)
+                        return res;
+                    Thread.Sleep(3);
+                }
+            }
+            finally
             {
-                executionResult res = resultInProgress.getResultIfComplete();
-                if (res != null)
-                    return res;
-                Thread.Sleep(3);
+                resultInProgress.Dispose();
             }
         }
 

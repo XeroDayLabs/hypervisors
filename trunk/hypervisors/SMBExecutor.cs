@@ -69,34 +69,35 @@ namespace hypervisors
                 info.WindowStyle = ProcessWindowStyle.Hidden;
 
                 //Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
-                Process proc = Process.Start(info);
-
-                // We allow psexec a relatively long window to start the process async on the host.
-                // This is because psexec can frequently take a long time to operate. Note that we 
-                // supply "-n" to psexec so we don't wait for a long time for non-responsive machines
-                // (eg, in the poweron path).
-                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
+                using (Process proc = Process.Start(info))
                 {
-                    try
+                    // We allow psexec a relatively long window to start the process async on the host.
+                    // This is because psexec can frequently take a long time to operate. Note that we 
+                    // supply "-n" to psexec so we don't wait for a long time for non-responsive machines
+                    // (eg, in the poweron path).
+                    if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
                     {
-                        proc.Kill();
-                    }
-                    catch (Exception)
-                    {
+                        try
+                        {
+                            proc.Kill();
+                        }
+                        catch (Exception)
+                        {
+                        }
+
+                        return null;
                     }
 
-                    return null;
+                    // Now we can scrape stdout and make sure the process was started correctly. 
+                    string psexecStdErr = proc.StandardError.ReadToEnd();
+                    if (psexecStdErr.Contains("The handle is invalid."))
+                        return null;
+                    if (!psexecStdErr.Contains(" started on " + _guestIP + " with process ID "))
+                        return null;
+
+                    // Note that we can't check the return status here, since psexec returns a PID :/
+                    return new asyncExecutionResultViaFile(this, fileSet);
                 }
-
-                // Now we can scrape stdout and make sure the process was started correctly. 
-                string psexecStdErr = proc.StandardError.ReadToEnd();
-                if (psexecStdErr.Contains("The handle is invalid."))
-                    return null;
-                if (!psexecStdErr.Contains(" started on " + _guestIP + " with process ID "))
-                    return null;
-
-                // Note that we can't check the return status here, since psexec returns a PID :/
-                return new asyncExecutionResultViaFile(this, fileSet);
             }
             finally
             {
