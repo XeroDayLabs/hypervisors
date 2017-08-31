@@ -185,8 +185,12 @@ namespace hypervisors
                 }
                 catch (Win32Exception e)
                 {
-                    if (e.NativeErrorCode == 1219) // "multiple connections to a server are not allowed"
+                    if (e.NativeErrorCode == 86)
+                    {
+                        // This is ERROR_INVALID_PASSWORD.
                         throw;
+                    }
+
                     if (retries-- == 0)
                         throw;
                 }
@@ -218,8 +222,12 @@ namespace hypervisors
                 }
                 catch (Win32Exception e)
                 {
-                    if (e.NativeErrorCode == 1219) // "multiple connections to a server are not allowed"
+                    if (e.NativeErrorCode == 86)
+                    {
+                        // This is ERROR_INVALID_PASSWORD.
                         throw;
+                    }
+
                     if (retries-- == 0)
                         throw;
                 }
@@ -254,8 +262,14 @@ namespace hypervisors
                     }
                     break;
                 }
-                catch (Win32Exception)
+                catch (Win32Exception e)
                 {
+                    if (e.NativeErrorCode == 86)
+                    {
+                        // This is ERROR_INVALID_PASSWORD.
+                        throw;
+                    }
+
                     if (DateTime.Now > deadline)
                         throw;
                 }
@@ -293,10 +307,9 @@ namespace hypervisors
                 }
                 catch (Win32Exception e)
                 {
-                    if (e.NativeErrorCode == 1219)
+                    if (e.NativeErrorCode == 86)
                     {
-                        // This is ERROR_SESSION_CREDENTIAL_CONFLICT.
-                        // It indicates we need manual intervention.
+                        // This is ERROR_INVALID_PASSWORD.
                         throw;
                     }
 
