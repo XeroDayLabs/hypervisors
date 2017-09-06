@@ -53,7 +53,8 @@ namespace hypervisors
             }
             finally
             {
-                resultInProgress.Dispose();
+                if (resultInProgress != null)
+                    resultInProgress.Dispose();
             }
         }
 
