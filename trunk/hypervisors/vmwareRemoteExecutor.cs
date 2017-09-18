@@ -10,14 +10,12 @@ namespace hypervisors
     public class vmwareRemoteExecutor : remoteExecution
     {
         private readonly hypSpec_vmware _spec;
-        private readonly VimClientImpl _vClient;
-        private readonly VirtualMachine _underlyingVM;
+        private readonly cachedVIMClientConnection conn;
 
-        public vmwareRemoteExecutor(hypSpec_vmware spec, VimClientImpl VClient, VirtualMachine underlyingVm)
+        public vmwareRemoteExecutor(hypSpec_vmware spec, cachedVIMClientConnection VClient)
         {
             _spec = spec;
-            _vClient = VClient;
-            _underlyingVM = underlyingVm;
+            conn = VClient;
         }
 
         public override void mkdir(string newDir)
@@ -28,6 +26,9 @@ namespace hypervisors
                 Password = _spec.kernelVMPassword,
                 InteractiveSession = true
             };
+
+            VimClientImpl _vClient = conn.getConnection();
+            VirtualMachine _underlyingVM = conn.getMachine();
 
             GuestOperationsManager gom = (GuestOperationsManager) _vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
             GuestAuthManager guestAuthManager = _vClient.GetView(gom.AuthManager, null) as GuestAuthManager;
@@ -48,6 +49,9 @@ namespace hypervisors
                 Password = _spec.kernelVMPassword,
                 InteractiveSession = true
             };
+
+            VimClientImpl _vClient = conn.getConnection();
+            VirtualMachine _underlyingVM = conn.getMachine();
 
             GuestOperationsManager gom = (GuestOperationsManager) _vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
             GuestAuthManager guestAuthManager = _vClient.GetView(gom.AuthManager, null) as GuestAuthManager;
@@ -84,6 +88,9 @@ namespace hypervisors
                 InteractiveSession = true
             };
 
+            VimClientImpl _vClient = conn.getConnection();
+            VirtualMachine _underlyingVM = conn.getMachine();
+
             GuestOperationsManager gom = (GuestOperationsManager) _vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
             GuestAuthManager guestAuthManager = _vClient.GetView(gom.AuthManager, null) as GuestAuthManager;
             guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
@@ -114,6 +121,10 @@ namespace hypervisors
                 Password = _spec.kernelVMPassword,
                 InteractiveSession = true
             };
+
+            VimClientImpl _vClient = conn.getConnection();
+            VirtualMachine _underlyingVM = conn.getMachine();
+
             GuestOperationsManager gom = (GuestOperationsManager) _vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
             GuestAuthManager guestAuthManager = (GuestAuthManager) _vClient.GetView(gom.AuthManager, null);
             guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);

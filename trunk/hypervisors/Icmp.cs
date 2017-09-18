@@ -33,6 +33,7 @@
 */
 
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -56,6 +57,16 @@ namespace Org.Mentalis.Network
         public Icmp(IPAddress host)
         {
             Host = host;
+        }
+
+        /// <summary>
+        /// Initializes an instance of the Icmp class.
+        /// </summary>
+        /// <param name="hostname">The host that will be used to communicate with.</param>
+        public Icmp(string hostname)
+        {
+            IPAddress ipAddress = Dns.GetHostEntry(hostname).AddressList.First();
+            Host = ipAddress;
         }
 
         /// <summary>
