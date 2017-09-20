@@ -13,8 +13,9 @@ namespace hypervisors
         readonly string _networkName;
 
         public NetworkConnection(string networkName,
-            NetworkCredential credentials)
+            NetworkCredential credentials, out Exception e)
         {
+            e = null;
             _networkName = networkName;
 
             NetResource netResource = new NetResource()
@@ -40,7 +41,7 @@ namespace hypervisors
 
             if (result != 0)
             {
-                throw new Win32Exception(result, "Error connecting to remote share, GLE " + Marshal.GetLastWin32Error());
+                e = new Win32Exception(result, "Error connecting to remote share, GLE " + Marshal.GetLastWin32Error());
             }
         }
 

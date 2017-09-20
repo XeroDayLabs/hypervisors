@@ -79,7 +79,7 @@ namespace hypervisors
             }
         }
 
-        public override string getFileFromGuest(string srcpath)
+        public override string tryGetFileFromGuest(string srcpath, out Exception errorOrNull)
         {
             NamePasswordAuthentication Auth = new NamePasswordAuthentication
             {
@@ -102,6 +102,7 @@ namespace hypervisors
             string url = transferOutput.Url.Replace("https://*", nodeIpAddress);
             using (WebClient webClient = new WebClient())
             {
+                errorOrNull = null;
                 return webClient.DownloadString(url);
             }
         }

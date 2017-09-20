@@ -170,73 +170,112 @@ namespace hypervisors
 
         public override void mkdir(string newDir)
         {
-            string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, newDir.Substring(2));
-            int retries = 60;
-            while (true)
+            doNetworkCall(() =>
             {
-                try
-                {
-                    using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
-                    {
-                        if (!Directory.Exists(destUNC))
-                            Directory.CreateDirectory(destUNC);
-                    }
-                    break;
-                }
-                catch (Win32Exception e)
-                {
-                    if (e.NativeErrorCode == 86)
-                    {
-                        // This is ERROR_INVALID_PASSWORD.
-                        throw;
-                    }
+                string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, newDir.Substring(2));
 
-                    if (retries-- == 0)
-                        throw;
-                }
-                catch (IOException)
-                {
-                    if (retries-- == 0)
-                        throw;
-                }
-                Thread.Sleep(TimeSpan.FromSeconds(1));
-            }
+                if (Directory.Exists(destUNC))
+                    Directory.CreateDirectory(destUNC);
+            }, TimeSpan.FromMinutes(2));
         }
 
         public override void deleteFile(string toDelete)
         {
-            string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, toDelete.Substring(2));
-            int retries = 60;
+            doNetworkCall(() =>
+            {
+                string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, toDelete.Substring(2));
+
+                if (Directory.Exists(destUNC))
+                    Directory.Delete(destUNC, true);
+                else if (File.Exists(destUNC))
+                    File.Delete(destUNC);
+            }, TimeSpan.FromMinutes(2));
+        }
+
+        private void doNetworkCall(Action toRun, TimeSpan timeout)
+        {
+            doNetworkCall(() =>
+            {
+                toRun.Invoke();
+                return 0;
+            }, timeout);
+        }
+
+        private T doNetworkCall<T>(Func<T> toRun, TimeSpan timeout)
+        {
+            Exception e;
+            T toRet = tryDoNetworkCall(() =>
+            {
+                T toRetInner = toRun.Invoke();
+                return new triedNetworkCallRes<T>() { res = toRetInner };
+            }, timeout, out e);
+            if (e != null)
+                throw e;
+
+            return toRet;
+        }
+
+        public class triedNetworkCallRes<T>
+        {
+            public T res;
+            public bool retryRequested = false;
+            public Exception error = null;
+        }
+
+        private T tryDoNetworkCall<T>(Func<triedNetworkCallRes<T>> toRun, TimeSpan timeout, out Exception excepOrNull)
+        {
+            DateTime deadline = DateTime.Now + timeout;
             while (true)
             {
-                try
+                Exception e;
+                using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred, out e))
                 {
-                    using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
+                    if (e != null)
                     {
-                        if (Directory.Exists(destUNC))
-                            Directory.Delete(destUNC, true);
-                        else if (File.Exists(destUNC))
-                            File.Delete(destUNC);
-                    }
-                    break;
-                }
-                catch (Win32Exception e)
-                {
-                    if (e.NativeErrorCode == 86)
-                    {
-                        // This is ERROR_INVALID_PASSWORD.
-                        throw;
+                        Win32Exception eAsWin32 = e as Win32Exception;
+                        if (eAsWin32 != null)
+                        {
+                            if (eAsWin32.NativeErrorCode == 86)
+                            {
+                                // This is ERROR_INVALID_PASSWORD. It is fatal so pass it upward.
+                                excepOrNull = e;
+                                return default(T);
+                            }
+                        }
+                        // Retry Win32Exceptions and IOExceptions
+                        if (eAsWin32 != null || e is IOException)
+                        {
+                            if (DateTime.Now > deadline)
+                            {
+                                // On no, we've run out of retry time :/
+                                excepOrNull = e;
+                                return default(T);
+                            }
+
+                            Thread.Sleep(TimeSpan.FromSeconds(1));
+                            continue;
+                        }
+
+                        // Other exceptions should be passed up to the caller.
+                        excepOrNull = e;
+                        return default(T);
                     }
 
-                    if (retries-- == 0)
-                        throw;
+                    triedNetworkCallRes<T> toRet = toRun.Invoke();
+                    if (toRet.retryRequested)
+                    {
+                        Thread.Sleep(TimeSpan.FromSeconds(1));
+                        continue;
+                    }
+                    if (toRet.error != null)
+                    {
+                        excepOrNull = toRet.error;
+                        return default(T);
+                    }
+
+                    excepOrNull = null;
+                    return toRet.res;
                 }
-                catch (IOException)
-                {
-                    if (retries-- == 0)
-                        throw;
-                }
-                Thread.Sleep(TimeSpan.FromSeconds(1));
             }
         }
 
@@ -247,84 +286,47 @@ namespace hypervisors
             if (!File.Exists(srcPath))
                 throw new Exception("src file not found");
 
-            string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, dstPath.Substring(2));
-            if (destUNC.EndsWith("\\"))
-                destUNC += Path.GetFileName(srcPath);
-
-            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
-            while (true)
+            doNetworkCall(() =>
             {
-                try
-                {
-                    using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
-                    {
-                        File.Copy(srcPath, destUNC, true);
-                    }
-                    break;
-                }
-                catch (Win32Exception e)
-                {
-                    if (e.NativeErrorCode == 86)
-                    {
-                        // This is ERROR_INVALID_PASSWORD.
-                        throw;
-                    }
+                string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, dstPath.Substring(2));
+                if (destUNC.EndsWith("\\"))
+                    destUNC += Path.GetFileName(srcPath);
 
-                    if (DateTime.Now > deadline)
-                        throw;
-                }
-                catch (IOException)
-                {
-                    if (DateTime.Now > deadline)
-                        throw;
-                }
-                Thread.Sleep(TimeSpan.FromSeconds(1));
-            }
+                File.Copy(srcPath, destUNC, true);
+            }, TimeSpan.FromMinutes(3));
         }
 
-        public override string getFileFromGuest(string srcpath)
+        public override string tryGetFileFromGuest(string srcpath, out Exception e)
         {
             if (!srcpath.ToLower().StartsWith("c:"))
-                throw new Exception("Only C:\\ is shared");
+            {
+                e = new Exception("Only C:\\ is shared");
+                return null;
+            }
 
-            string srcUNC = string.Format("\\\\{0}\\C{1}", _guestIP, srcpath.Substring(2));
-
-            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(5);
-            while (true)
+            return tryDoNetworkCall<string>(() =>
             {
                 try
                 {
-                    using (NetworkConnection conn = new NetworkConnection(string.Format("\\\\{0}\\C", _guestIP), _cred))
+                    // Check the file exists before attempting to open it, as this can save a FileNotFoundException sometimes.
+                    string srcUNC = string.Format("\\\\{0}\\C{1}", _guestIP, srcpath.Substring(2));
+                    if (!File.Exists(srcUNC))
+                        return new triedNetworkCallRes<string>() {retryRequested = true};
+
+                    using (FileStream srcFile = File.Open(srcUNC, FileMode.Open, FileAccess.Read, FileShare.None))
                     {
-                        using (FileStream srcFile = File.Open(srcUNC, FileMode.Open, FileAccess.Read, FileShare.None))
+                        using (StreamReader srcReader = new StreamReader(srcFile))
                         {
-                            using (StreamReader srcReader = new StreamReader(srcFile))
-                            {
-                                return srcReader.ReadToEnd();
-                            }
+                            return new triedNetworkCallRes<string>() {res = srcReader.ReadToEnd()};
                         }
                     }
                 }
-                catch (Win32Exception e)
-                {
-                    if (e.NativeErrorCode == 86)
-                    {
-                        // This is ERROR_INVALID_PASSWORD.
-                        throw;
-                    }
-
-                    if (DateTime.Now > deadline)
-                        throw;
-
-                    // retry on other win32 exceptions
-                }
                 catch (Exception)
                 {
-                    throw new hypervisorExecutionException();
+                    return new triedNetworkCallRes<string>() {error = new hypervisorExecutionException()};
                 }
 
-                Thread.Sleep(TimeSpan.FromSeconds(5));
-            }
+            }, TimeSpan.FromMinutes(5), out e);
         }
     }
 

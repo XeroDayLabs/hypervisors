@@ -11,10 +11,19 @@ namespace hypervisors
     {
         public abstract void mkdir(string newDir);
         public abstract void copyToGuest(string dstpath, string srcpath);
-        public abstract string getFileFromGuest(string srcpath);
+        public abstract string tryGetFileFromGuest(string srcpath, out Exception errorOrNull);
         public abstract IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null);
         public abstract void testConnectivity();
         public abstract void deleteFile(string toDelete);
+
+        public string getFileFromGuest(string srcpath)
+        {
+            Exception e;
+            string toRet = tryGetFileFromGuest(srcpath, out e);
+            if (e != null)
+                throw e;
+            return toRet;
+        }
 
         public executionResult startExecutable(string toExecute, string args, string workingDir, DateTime deadline)
         {

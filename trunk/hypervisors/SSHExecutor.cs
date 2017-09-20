@@ -46,13 +46,23 @@ namespace hypervisors
             }
         }
 
-        public override string getFileFromGuest(string srcpath)
+        public override string tryGetFileFromGuest(string srcpath, out Exception errorOrNull)
         {
-            using (SftpClient client = new SftpClient(inf))
+            try
             {
-                client.Connect();
+                using (SftpClient client = new SftpClient(inf))
+                {
+                    client.Connect();
 
-                return client.ReadAllText(srcpath);
+                    string toRet = client.ReadAllText(srcpath);
+                    errorOrNull = null;
+                    return toRet;
+                }
+            }
+            catch (Exception e)
+            {
+                errorOrNull = e;
+                return null;
             }
         }
 
