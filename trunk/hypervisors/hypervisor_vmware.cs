@@ -225,7 +225,7 @@ namespace hypervisors
             if (timeout == default(TimeSpan))
                 timeout = TimeSpan.FromSeconds(30);
 
-            return doWithRetryOnSomeExceptions(() => { return executor.getFileFromGuest(srcpath); }, TimeSpan.FromSeconds(10), timeout);
+            return doWithRetryOnSomeExceptions(() => { return executor.tryGetFileFromGuestWithRes(srcpath); }, TimeSpan.FromSeconds(10), timeout);
         }
 
         public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = default(DateTime))

@@ -49,6 +49,59 @@ namespace hypervisors
             }
         }
 
+        public static T doWithRetryOnSomeExceptions<T>(Func<SMBExecutor.triedNetworkCallRes<T>> thingtoDo, TimeSpan retryDelay = default(TimeSpan), TimeSpan timeout = default(TimeSpan), DateTime deadline = default(DateTime))
+        {
+            if (retryDelay == default(TimeSpan))
+                retryDelay = TimeSpan.FromSeconds(1);
+            if (timeout == default(TimeSpan))
+            {
+                if (deadline == default(DateTime))
+                    deadline = DateTime.MaxValue;
+            }
+            else
+            {
+                deadline = DateTime.Now + timeout;
+            }
+
+            while (true)
+            {
+                SMBExecutor.triedNetworkCallRes<T> res = thingtoDo.Invoke();
+                if (!res.retryRequested)
+                {
+                    if (res.error == null)
+                        return res.res;
+            
+                    if (res.error is VimException)
+                    {
+                        // This VimException is fatal
+                        if (res.error.Message.Contains("are insufficient for the operation"))
+                            throw res.error;
+                        // while others are not.
+                        if (DateTime.Now > deadline)
+                            throw res.error;
+                    }
+                    if (!(res.error is SocketException) &&
+                        !(res.error is SoapException)   &&
+                        !(res.error is TimeoutException)&& 
+                        !(res.error is WebException)    &&
+                        !(res.error is hypervisorExecutionException)   &&
+                        !(res.error is hypervisorExecutionException_retryable)   &&
+                        !(res.error is SshOperationTimeoutException)   &&
+                        !(res.error is SshConnectionException)                      )
+                    {
+                        // An exception of a type we don't anticipate, so throw
+                        throw res.error;
+                    }
+
+                    // throw if the deadline has passed
+                    if (DateTime.Now > deadline)
+                        throw res.error;
+                }
+
+                // Otherwise, just retry.
+                Thread.Sleep(retryDelay);
+            }
+        }
 
         public static T doWithRetryOnSomeExceptions<T>(Func<T> thingtoDo, TimeSpan retryDelay = default(TimeSpan), TimeSpan timeout = default(TimeSpan), DateTime deadline = default (DateTime))
         {
@@ -194,10 +247,10 @@ namespace hypervisors
             {
                 // Read the return code last. We do this because there's no way in VMWare's guest tools specify file locking, so
                 // we may see empty files before they have been written to.
-                int retCode = Int32.Parse(_host.withRetryUntilSuccess(() => _host.getFileFromGuest(_returnCodeFilename)));
+                int retCode = Int32.Parse(_host.withRetryUntilSuccess(() => _host.tryGetFileFromGuestWithRes(_returnCodeFilename)));
 
-                string stdOut = _host.withRetryUntilSuccess(() => _host.getFileFromGuest(_stdOutFilename));
-                string stdErr = _host.withRetryUntilSuccess(() => _host.getFileFromGuest(_stdErrFilename));
+                string stdOut = _host.withRetryUntilSuccess(() => _host.tryGetFileFromGuestWithRes(_stdOutFilename));
+                string stdErr = _host.withRetryUntilSuccess(() => _host.tryGetFileFromGuestWithRes(_stdErrFilename));
 
                 return new executionResult(stdOut, stdErr, retCode);
             }

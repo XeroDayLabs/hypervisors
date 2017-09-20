@@ -25,6 +25,16 @@ namespace hypervisors
             return toRet;
         }
 
+        public SMBExecutor.triedNetworkCallRes<string> tryGetFileFromGuestWithRes(string srcpath)
+        {
+            Exception e;
+            string toRet = tryGetFileFromGuest(srcpath, out e);
+            if (e != null)
+                return new SMBExecutor.triedNetworkCallRes<string>() {error = e};
+
+            return new SMBExecutor.triedNetworkCallRes<string>() { res = toRet };
+        }
+
         public executionResult startExecutable(string toExecute, string args, string workingDir, DateTime deadline)
         {
             return startExecutable(toExecute, args, workingDir, deadline - DateTime.Now);
@@ -74,6 +84,28 @@ namespace hypervisors
                 action.Invoke();
                 return 0;
             });
+        }
+
+        public T withRetryUntilSuccess<T>(Func<SMBExecutor.triedNetworkCallRes<T>> action)
+        {
+            while (true)
+            {
+                SMBExecutor.triedNetworkCallRes<T> res = action();
+                if (!res.retryRequested)
+                {
+                    if (res.error == null)
+                        return res.res;
+
+                    if (!(res.error is Win32Exception) &&
+                        !(res.error is TimeoutException) &&
+                        !(res.error is VimException))
+                    {
+                        throw res.error;
+                    }
+                }
+
+                Thread.Sleep(TimeSpan.FromSeconds(3));
+            }
         }
 
         public T withRetryUntilSuccess<T>(Func<T> action)
