@@ -90,6 +90,9 @@ namespace hypervisors
                 catch (TimeoutException)
                 {
                 }
+                catch (IOException)
+                {
+                }
                 catch (VimException)
                 {
                 }
