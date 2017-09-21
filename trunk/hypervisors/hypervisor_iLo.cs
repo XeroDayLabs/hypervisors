@@ -166,7 +166,7 @@ namespace hypervisors
             if (_executor == null)
                 throw new NotSupportedException();
 
-            return doWithRetryOnSomeExceptions(() => { return _executor.getFileFromGuest(srcpath); }, timeout
+            return doWithRetryOnSomeExceptions(() => { return _executor.tryGetFileFromGuestWithRes(srcpath); }, timeout
                 );
         }
 

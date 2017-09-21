@@ -174,7 +174,7 @@ namespace hypervisors
             {
                 string destUNC = string.Format("\\\\{0}\\C{1}", _guestIP, newDir.Substring(2));
 
-                if (Directory.Exists(destUNC))
+                while (!Directory.Exists(destUNC))
                     Directory.CreateDirectory(destUNC);
             }, TimeSpan.FromMinutes(2));
         }
