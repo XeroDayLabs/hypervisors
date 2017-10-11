@@ -243,33 +243,24 @@ namespace hypervisors
 
         public executionResult getResultIfComplete()
         {
-            try
-            {
-                // Read the return code last. We do this because there's no way in VMWare's guest tools specify file locking, so
-                // we may see empty files before they have been written to.
-                int retCode = Int32.Parse(_host.withRetryUntilSuccess(() => _host.tryGetFileFromGuestWithRes(_returnCodeFilename)));
+            // Read the return code last. We do this because there's no way in VMWare's guest tools specify file locking, so
+            // we may see empty files before they have been written to.
+            SMBExecutor.triedNetworkCallRes<string> returnCodeResultInfo = _host.tryGetFileFromGuestWithRes(_returnCodeFilename);
+            SMBExecutor.triedNetworkCallRes<string> stdOutResultInfo = _host.tryGetFileFromGuestWithRes(_stdOutFilename);
+            SMBExecutor.triedNetworkCallRes<string> stdErrResultInfo = _host.tryGetFileFromGuestWithRes(_stdErrFilename);
 
-                string stdOut = _host.withRetryUntilSuccess(() => _host.tryGetFileFromGuestWithRes(_stdOutFilename));
-                string stdErr = _host.withRetryUntilSuccess(() => _host.tryGetFileFromGuestWithRes(_stdErrFilename));
+            if (returnCodeResultInfo.retryRequested || returnCodeResultInfo.error != null ||
+                stdOutResultInfo.retryRequested || stdOutResultInfo.error != null ||
+                stdErrResultInfo.retryRequested || stdErrResultInfo.error != null)
+            {
+                return null;
+            }
 
-                return new executionResult(stdOut, stdErr, retCode);
-            }
-            catch (FileNotFoundException)
-            {
-                return null;
-            }
-            catch (NullReferenceException)
-            {
-                return null;
-            }
-            catch (VimException)
-            {
-                return null;
-            }
-            catch (hypervisorExecutionException)
-            {
-                return null;
-            }
+            int retCode = Int32.Parse(returnCodeResultInfo.res);
+            string stdOut = stdOutResultInfo.res;
+            string stdErr = stdErrResultInfo.res;
+
+            return new executionResult(stdOut, stdErr, retCode);
         }
 
         public void Dispose()

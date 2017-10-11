@@ -117,8 +117,11 @@ namespace hypervisors
                 {
                     return action();
                 }
-                catch (Win32Exception)
+                catch (Win32Exception e)
                 {
+                    if (e.ErrorCode == 86)
+                        // Invalid password
+                        throw;
                 }
                 catch (TimeoutException)
                 {
