@@ -130,6 +130,17 @@ namespace hypervisors
         /// </summary>
         private remoteExecution executor;
 
+        public static string[] getVMNames(string servername, string username, string password)
+        {
+            VimClientImpl client = new VimClientImpl();
+            client.Connect("https://" + servername + "/sdk");
+            client.Login(username, password);
+
+            List<EntityViewBase> vmlist = client.FindEntityViews(typeof(VirtualMachine), null, null, null);
+
+            return vmlist.Select(x => ((VirtualMachine) x).Name).ToArray();
+        }
+
         protected hypervisor_vmware_withoutSnapshots(hypSpec_vmware spec, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
         {
             _spec = spec;
