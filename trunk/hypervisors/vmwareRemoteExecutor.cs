@@ -81,29 +81,37 @@ namespace hypervisors
 
         public override string tryGetFileFromGuest(string srcpath, out Exception errorOrNull)
         {
-            NamePasswordAuthentication Auth = new NamePasswordAuthentication
+            try
             {
-                Username = _spec.kernelVMUsername,
-                Password = _spec.kernelVMPassword,
-                InteractiveSession = true
-            };
+                NamePasswordAuthentication Auth = new NamePasswordAuthentication
+                {
+                    Username = _spec.kernelVMUsername,
+                    Password = _spec.kernelVMPassword,
+                    InteractiveSession = true
+                };
 
-            VimClientImpl _vClient = conn.getConnection();
-            VirtualMachine _underlyingVM = conn.getMachine();
+                VimClientImpl vClient = conn.getConnection();
+                VirtualMachine underlyingVM = conn.getMachine();
 
-            GuestOperationsManager gom = (GuestOperationsManager) _vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
-            GuestAuthManager guestAuthManager = _vClient.GetView(gom.AuthManager, null) as GuestAuthManager;
-            guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
-            GuestFileManager GFM = _vClient.GetView(gom.FileManager, null) as GuestFileManager;
+                GuestOperationsManager gom = (GuestOperationsManager) vClient.GetView(vClient.ServiceContent.GuestOperationsManager, null);
+                GuestAuthManager guestAuthManager = vClient.GetView(gom.AuthManager, null) as GuestAuthManager;
+                guestAuthManager.ValidateCredentialsInGuest(underlyingVM.MoRef, Auth);
+                GuestFileManager GFM = vClient.GetView(gom.FileManager, null) as GuestFileManager;
 
-            FileTransferInformation transferOutput = GFM.InitiateFileTransferFromGuest(_underlyingVM.MoRef, Auth, srcpath);
-            string nodeIpAddress = _vClient.ServiceUrl.ToString();
-            nodeIpAddress = nodeIpAddress.Remove(nodeIpAddress.LastIndexOf('/'));
-            string url = transferOutput.Url.Replace("https://*", nodeIpAddress);
-            using (WebClient webClient = new WebClient())
+                FileTransferInformation transferOutput = GFM.InitiateFileTransferFromGuest(underlyingVM.MoRef, Auth, srcpath);
+                string nodeIpAddress = vClient.ServiceUrl;
+                nodeIpAddress = nodeIpAddress.Remove(nodeIpAddress.LastIndexOf('/'));
+                string url = transferOutput.Url.Replace("https://*", nodeIpAddress);
+                using (WebClient webClient = new WebClient())
+                {
+                    errorOrNull = null;
+                    return webClient.DownloadString(url);
+                }
+            }
+            catch (Exception e)
             {
-                errorOrNull = null;
-                return webClient.DownloadString(url);
+                errorOrNull = e;
+                return null;
             }
         }
 
@@ -116,7 +124,7 @@ namespace hypervisors
 
             execFileSet fileSet = prepareForExecution(toExecute, args, tempDir);
 
-            NamePasswordAuthentication Auth = new NamePasswordAuthentication
+            NamePasswordAuthentication auth = new NamePasswordAuthentication
             {
                 Username = _spec.kernelVMUsername,
                 Password = _spec.kernelVMPassword,
@@ -128,7 +136,7 @@ namespace hypervisors
 
             GuestOperationsManager gom = (GuestOperationsManager) _vClient.GetView(_vClient.ServiceContent.GuestOperationsManager, null);
             GuestAuthManager guestAuthManager = (GuestAuthManager) _vClient.GetView(gom.AuthManager, null);
-            guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, Auth);
+            guestAuthManager.ValidateCredentialsInGuest(_underlyingVM.MoRef, auth);
             GuestProcessManager guestProcessManager = _vClient.GetView(gom.ProcessManager, null) as GuestProcessManager;
             GuestProgramSpec progSpec = new GuestProgramSpec
             {
@@ -136,7 +144,7 @@ namespace hypervisors
                 Arguments = "",
                 WorkingDirectory = workingDir
             };
-            guestProcessManager.StartProgramInGuest(_underlyingVM.MoRef, Auth, progSpec);
+            guestProcessManager.StartProgramInGuest(_underlyingVM.MoRef, auth, progSpec);
 
             return new asyncExecutionResultViaFile(this, fileSet);
         }
