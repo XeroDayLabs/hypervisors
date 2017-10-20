@@ -119,7 +119,7 @@ namespace hypervisors
                 }
                 catch (Win32Exception e)
                 {
-                    if (e.ErrorCode == 86)
+                    if (e.NativeErrorCode == 86)
                         // Invalid password
                         throw;
                 }
