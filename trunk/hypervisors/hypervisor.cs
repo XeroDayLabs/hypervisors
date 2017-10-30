@@ -172,38 +172,14 @@ namespace hypervisors
 
         public void copyToGuestFromBuffer(string dstpath, byte[] srcContents)
         {
-            string tmpFilename = Path.GetTempFileName();
-            try
+            using (temporaryFile tmpFile = new temporaryFile())
             {
-                using (FileStream tmpFile = new FileStream(tmpFilename, FileMode.OpenOrCreate))
+                using (FileStream tmpFileStream = new FileStream(tmpFile.filename, FileMode.OpenOrCreate))
                 {
-                    tmpFile.Write(srcContents, 0, srcContents.Length);
-                    tmpFile.Seek(0, SeekOrigin.Begin);
+                    tmpFileStream.Write(srcContents, 0, srcContents.Length);
+                    tmpFileStream.Seek(0, SeekOrigin.Begin);    // ?!
                 }
-                copyToGuest(dstpath, tmpFilename);
-            }
-            finally
-            {
-                // Delete with a retry, in case something (eg windows defender) has started using the file.
-                DateTime deadline = DateTime.Now + TimeSpan.FromSeconds(30);
-                while (true)
-                {
-                    try
-                    {
-                        File.Delete(tmpFilename);
-                        break;
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        break;
-                    }
-                    catch (Exception)
-                    {
-                        if (deadline < DateTime.Now)
-                            throw;
-                        Thread.Sleep(TimeSpan.FromSeconds(2));
-                    }
-                }
+                copyToGuest(dstpath, tmpFile.filename);
             }
         }
 

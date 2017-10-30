@@ -149,9 +149,8 @@ namespace hypervisors
             // We do this by creating two batch files on the target.
             // The first contains the command we're executing, and the second simply calls the first with redirection to the files
             // we want our output in. This simplifies escaping on the commandline via psexec.
-            string payloadBatchfile = Path.GetTempFileName() + ".bat";
-            string launcherTempFile = Path.GetTempFileName() + ".bat";
-            try
+            using (temporaryFile payloadBatch = new temporaryFile(".bat"))
+            using (temporaryFile launcherTemp = new temporaryFile(".bat"))
             {
                 string launcherRemotePath = tempDir + Guid.NewGuid() + "_launcher.bat";
                 string payloadRemotePath = tempDir + Guid.NewGuid() + "_payload.bat";
@@ -163,57 +162,15 @@ namespace hypervisors
                 string launchFileContents = String.Format(
                     "@call \"{0}\" 1> {2} 2> {3} \r\n" +
                     "@echo %ERRORLEVEL% > {1}", payloadRemotePath, returnCodeFilename, stdOutFilename, stdErrFilename);
-                File.WriteAllText(launcherTempFile, launchFileContents);
+                launcherTemp.WriteAllText(launchFileContents);
                 // And the payload batch.
-                File.WriteAllText(payloadBatchfile, string.Format("@{0} {1}", toExecute, args));
+                payloadBatch.WriteAllText(string.Format("@{0} {1}", toExecute, args));
                 // Then, copy them to the guest.
-                withRetryUntilSuccess(() => copyToGuest(launcherRemotePath, launcherTempFile));
-                withRetryUntilSuccess(() => copyToGuest(payloadRemotePath, payloadBatchfile));
+                withRetryUntilSuccess(() => copyToGuest(launcherRemotePath, launcherTemp.filename));
+                withRetryUntilSuccess(() => copyToGuest(payloadRemotePath, payloadBatch.filename));
 
                 // Now return info about what files we're going to use, so the caller can.. use them.
                 return new execFileSet(stdOutFilename, stdErrFilename, returnCodeFilename, launcherRemotePath);
-            }
-            finally
-            {
-                // and delete temp files.
-
-                DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(2);
-                while (true)
-                {
-                    try
-                    {
-                        File.Delete(payloadBatchfile);
-                        break;
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        break;
-                    }
-                    catch (Exception)
-                    {
-                        if (deadline < DateTime.Now)
-                            throw;
-                        Thread.Sleep(TimeSpan.FromSeconds(2));
-                    }
-                }
-                while (true)
-                {
-                    try
-                    {
-                        File.Delete(launcherTempFile);
-                        break;
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        break;
-                    }
-                    catch (Exception)
-                    {
-                        if (deadline < DateTime.Now)
-                            throw;
-                        Thread.Sleep(TimeSpan.FromSeconds(2));
-                    }
-                }
             }
         }
     }

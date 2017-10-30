@@ -50,95 +50,49 @@ namespace hypervisors
             if (workingDir == null)
                 workingDir = tempDir;
 
-            execFileSet fileSet = base.prepareForExecution(toExecute, args, tempDir);
-
             // We do this by creating two batch files on the target.
             // The first contains the command we're executing, and the second simply calls the first with redirection to the files
             // we want our output in. This simplifies escaping on the commandline via psexec.
-            string payloadBatchfile = Path.GetTempFileName() + ".bat";
-            string launcherTempFile = Path.GetTempFileName() + ".bat";
-            try
+            execFileSet fileSet = base.prepareForExecution(toExecute, args, tempDir);
+
+            // Now execute the launcher.bat via psexec.
+            string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -u {1} -p {2} -w {4} -n 5 -h \"{3}\"",
+                _guestIP, _username, _password, fileSet.launcherPath, workingDir, "-d", runInteractively ? " -i " : "");
+            ProcessStartInfo info = new ProcessStartInfo(findPsexecPath(), psExecArgs);
+            info.RedirectStandardError = true;
+            info.RedirectStandardOutput = true;
+            info.UseShellExecute = false;
+            info.WindowStyle = ProcessWindowStyle.Hidden;
+
+            //Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
+            using (Process proc = Process.Start(info))
             {
-                // Now execute the launcher.bat via psexec.
-                string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -u {1} -p {2} -w {4} -n 5 -h \"{3}\"",
-                    _guestIP, _username, _password, fileSet.launcherPath, workingDir, "-d", runInteractively ? " -i " : "");
-                ProcessStartInfo info = new ProcessStartInfo(findPsexecPath(), psExecArgs);
-                info.RedirectStandardError = true;
-                info.RedirectStandardOutput = true;
-                info.UseShellExecute = false;
-                info.WindowStyle = ProcessWindowStyle.Hidden;
-
-                //Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
-                using (Process proc = Process.Start(info))
-                {
-                    // We allow psexec a relatively long window to start the process async on the host.
-                    // This is because psexec can frequently take a long time to operate. Note that we 
-                    // supply "-n" to psexec so we don't wait for a long time for non-responsive machines
-                    // (eg, in the poweron path).
-                    if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
-                    {
-                        try
-                        {
-                            proc.Kill();
-                        }
-                        catch (Exception)
-                        {
-                        }
-
-                        return null;
-                    }
-
-                    // Now we can scrape stdout and make sure the process was started correctly. 
-                    string psexecStdErr = proc.StandardError.ReadToEnd();
-                    if (psexecStdErr.Contains("The handle is invalid."))
-                        return null;
-                    if (!psexecStdErr.Contains(" started on " + _guestIP + " with process ID "))
-                        return null;
-
-                    // Note that we can't check the return status here, since psexec returns a PID :/
-                    return new asyncExecutionResultViaFile(this, fileSet);
-                }
-            }
-            finally
-            {
-                // And delete our temp files.
-                DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
-                while (true)
+                // We allow psexec a relatively long window to start the process async on the host.
+                // This is because psexec can frequently take a long time to operate. Note that we 
+                // supply "-n" to psexec so we don't wait for a long time for non-responsive machines
+                // (eg, in the poweron path).
+                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
                 {
                     try
                     {
-                        File.Delete(payloadBatchfile);
-                        break;
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        break;
+                        proc.Kill();
                     }
                     catch (Exception)
                     {
-                        if (deadline < DateTime.Now)
-                            throw;
-                        Thread.Sleep(TimeSpan.FromSeconds(2));
                     }
+
+                    return null;
                 }
-                while (true)
-                {
-                    try
-                    {
-                        File.Delete(launcherTempFile);
-                        break;
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        break;
-                    }
-                    catch (Exception)
-                    {
-                        if (deadline < DateTime.Now)
-                            throw;
-                        Thread.Sleep(TimeSpan.FromSeconds(2));
-                    }
-                }
+
+                // Now we can scrape stdout and make sure the process was started correctly. 
+                string psexecStdErr = proc.StandardError.ReadToEnd();
+                if (psexecStdErr.Contains("The handle is invalid."))
+                    return null;
+                if (!psexecStdErr.Contains(" started on " + _guestIP + " with process ID "))
+                    return null;
+
+                // Note that we can't check the return status here, since psexec returns a PID :/
+                return new asyncExecutionResultViaFile(this, fileSet);
             }
         }
 

@@ -20,7 +20,7 @@ namespace hypervisors
         {
             _spec = spec;
 
-            getMachine();
+            //getMachine();
         }
 
         public VimClientImpl getConnection()
@@ -87,9 +87,23 @@ namespace hypervisors
             }
 
             // We can ping fine, so connect using HTTP.
-            VClient = new VimClientImpl();
-            VClient.Connect("https://" + _spec.kernelVMServer + "/sdk");
-            VClient.Login(_spec.kernelVMServerUsername, _spec.kernelVMServerPassword);
+            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(5);
+            while (true)
+            {
+                try
+                {
+                    VClient = new VimClientImpl();
+                    VClient.Connect("https://" + _spec.kernelVMServer + "/sdk");
+                    VClient.Login(_spec.kernelVMServerUsername, _spec.kernelVMServerPassword);
+                    break;
+                }
+                catch (Exception)
+                {
+                    if (DateTime.Now > deadline)
+                        throw;
+                    continue;
+                }
+            }
         }
 
         public VirtualMachine getMachine()
