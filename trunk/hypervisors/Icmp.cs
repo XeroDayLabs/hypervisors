@@ -65,7 +65,9 @@ namespace Org.Mentalis.Network
         /// <param name="hostname">The host that will be used to communicate with.</param>
         public Icmp(string hostname)
         {
-            IPAddress ipAddress = Dns.GetHostEntry(hostname).AddressList.First();
+            IPAddress ipAddress;
+            if (!IPAddress.TryParse(hostname, out ipAddress))
+                ipAddress = Dns.GetHostEntry(hostname).AddressList.First();
             Host = ipAddress;
         }
 
