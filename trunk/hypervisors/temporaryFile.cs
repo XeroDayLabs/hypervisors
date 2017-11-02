@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 
@@ -15,19 +16,26 @@ namespace hypervisors
 
         public temporaryFile(string fileExtension)
         {
-            filename = Path.GetTempFileName() + ".bat";
+            filename = Path.GetTempFileName();
+            deleteFile(filename);
+            filename = filename + "_" + Guid.NewGuid() + ".bat";
         }
 
         public void Dispose()
         {
-            // Delete with a retry, in case something (eg windows defender) has started using the file.
+            deleteFile(filename);
+        }
+
+        private void deleteFile(string toDelete)
+        {
+// Delete with a retry, in case something (eg windows defender) has started using the file.
             DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(3);
 
             while (true)
             {
                 try
                 {
-                    File.Delete(filename);
+                    File.Delete(toDelete);
                     break;
                 }
                 catch (FileNotFoundException)
@@ -40,7 +48,7 @@ namespace hypervisors
                         throw;
                     Thread.Sleep(TimeSpan.FromSeconds(1));
                 }
-            }            
+            }
         }
 
         public void WriteAllText(string contents)
