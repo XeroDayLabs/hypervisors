@@ -9,12 +9,12 @@ namespace hypervisors
 {
     public abstract class remoteExecution
     {
-        public abstract void mkdir(string newDir);
-        public abstract void copyToGuest(string dstpath, string srcpath);
+        public abstract void mkdir(string newDir, cancellableDateTime deadline = null);
+        public abstract void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline = null);
         public abstract string tryGetFileFromGuest(string srcpath, out Exception errorOrNull);
         public abstract IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null);
         public abstract void testConnectivity();
-        public abstract void deleteFile(string toDelete);
+        public abstract void deleteFile(string toDelete, cancellableDateTime deadline);
 
         public string getFileFromGuest(string srcpath)
         {
@@ -35,18 +35,10 @@ namespace hypervisors
             return new SMBExecutor.triedNetworkCallRes<string>() { res = toRet };
         }
 
-        public executionResult startExecutable(string toExecute, string args, string workingDir, DateTime deadline)
+        public virtual executionResult startExecutable(string toExecute, string args, string workingDir = null, cancellableDateTime deadline = null)
         {
-            return startExecutable(toExecute, args, workingDir, deadline - DateTime.Now);
-        }
-
-        public virtual executionResult startExecutable(string toExecute, string args, string workingDir = null, TimeSpan timeout = default(TimeSpan))
-        {
-            DateTime deadline;
-            if (timeout == default(TimeSpan))
-                deadline = DateTime.Now + TimeSpan.FromMinutes(3);
-            else
-                deadline = DateTime.Now + timeout;
+            if (deadline == null)
+                deadline = new cancellableDateTime(TimeSpan.FromMinutes(3));
 
             IAsyncExecutionResult resultInProgress = null;
             try
@@ -64,6 +56,8 @@ namespace hypervisors
 
                 while (true)
                 {
+                    if (!deadline.stillOK)
+                        throw new TimeoutException();
                     executionResult res = resultInProgress.getResultIfComplete();
                     if (res != null)
                         return res;

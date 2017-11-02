@@ -175,11 +175,8 @@ namespace hypervisors
             }
         }
 
-        public override void powerOn(DateTime deadline = default(DateTime))
+        public override void powerOn(cancellableDateTime deadline)
         {
-            if (deadline == default(DateTime))
-                deadline = DateTime.Now + TimeSpan.FromMinutes(3);
-
             // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
             // particularly under load, hence the retries.
             doWithRetryOnSomeExceptions(() =>
@@ -188,7 +185,7 @@ namespace hypervisors
                 if (VM.Runtime.PowerState == VirtualMachinePowerState.poweredOn)
                     return;
                 VM.PowerOnVM(VM.Runtime.Host);
-            }, TimeSpan.FromSeconds(5), deadline - DateTime.Now);
+            }, deadline, TimeSpan.FromSeconds(5));
 
             // Wait for it to be ready
             if (_executionMethod == clientExecutionMethod.vmwaretools)
@@ -208,13 +205,13 @@ namespace hypervisors
             {
                 startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
                 return "";
-            }, TimeSpan.FromSeconds(5), deadline - DateTime.Now);
+            }, deadline, TimeSpan.FromSeconds(5));
         }
 
-        public override void powerOff(DateTime deadline = default(DateTime))
+        public override void powerOff(cancellableDateTime deadline = null)
         {
-            if (deadline == default(DateTime))
-                deadline = DateTime.Now + TimeSpan.FromMinutes(3);
+            if (deadline == null)
+                deadline = new cancellableDateTime();
 
             // Sometimes I am seeing 'the attempted operation cannot be performed in the current state (Powered on)' here,
             // particularly under load, hence the retries.
@@ -227,7 +224,7 @@ namespace hypervisors
                     if (vm.Runtime.PowerState == VirtualMachinePowerState.poweredOff)
                         return;
                     vm.PowerOffVM();
-                }, TimeSpan.FromSeconds(5), deadline - DateTime.Now);
+                }, deadline, TimeSpan.FromSeconds(5));
             }
         }
 
@@ -235,9 +232,12 @@ namespace hypervisors
         {
         }
 
-        public override void copyToGuest(string dstpath, string srcpath)
+        public override void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline)
         {
-            doWithRetryOnSomeExceptions(() => { _copyToGuest(dstpath, srcpath); }, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1));
+            if (deadline == null)
+                deadline = new cancellableDateTime(TimeSpan.FromMinutes(2));
+
+            doWithRetryOnSomeExceptions(() => { _copyToGuest(dstpath, srcpath); }, deadline, TimeSpan.FromSeconds(10));
         }
 
         private void _copyToGuest(string dstpath, string srcpath)
@@ -245,16 +245,19 @@ namespace hypervisors
             executor.copyToGuest(dstpath, srcpath);
         }
 
-        public override string getFileFromGuest(string srcpath, TimeSpan timeout)
+        public override string getFileFromGuest(string srcpath, cancellableDateTime deadline)
         {
-            if (timeout == default(TimeSpan))
-                timeout = TimeSpan.FromSeconds(30);
+            if (deadline == null)
+                deadline = new cancellableDateTime(TimeSpan.FromMinutes(2));
 
-            return doWithRetryOnSomeExceptions(() => { return executor.tryGetFileFromGuestWithRes(srcpath); }, TimeSpan.FromSeconds(10), timeout);
+            return doWithRetryOnSomeExceptions(() => { return executor.tryGetFileFromGuestWithRes(srcpath); }, deadline, TimeSpan.FromSeconds(10));
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = default(DateTime))
+        public override executionResult startExecutable(string toExecute, string args, string workingdir = null, cancellableDateTime deadline = null)
         {
+            if (deadline == null)
+                deadline = new cancellableDateTime();
+
             return executor.startExecutable(toExecute, args, workingdir, deadline);
         }
 
@@ -268,9 +271,12 @@ namespace hypervisors
             return executor.startExecutableAsyncWithRetry(toExecute, args, workingDir);
         }
 
-        public override void mkdir(string newDir)
+        public override void mkdir(string newDir, cancellableDateTime deadline = null)
         {
-            doWithRetryOnSomeExceptions(() => { executor.mkdir(newDir); }, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1));
+            if (deadline == null)
+                deadline = new cancellableDateTime(TimeSpan.FromMinutes(1));
+
+            doWithRetryOnSomeExceptions(() => { executor.mkdir(newDir); }, TimeSpan.FromSeconds(10));
         }
 
         public override hypSpec_vmware getConnectionSpec()

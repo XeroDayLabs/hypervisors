@@ -18,8 +18,9 @@ namespace hypervisors
             conn = VClient;
         }
 
-        public override void mkdir(string newDir)
+        public override void mkdir(string newDir, cancellableDateTime deadline)
         {
+            // TODO: timeouts
             NamePasswordAuthentication Auth = new NamePasswordAuthentication
             {
                 Username = _spec.kernelVMUsername,
@@ -38,10 +39,12 @@ namespace hypervisors
             GFM.MakeDirectoryInGuest(_underlyingVM.MoRef, Auth, newDir, true);
         }
 
-        public override void copyToGuest(string dstpath, string srcpath)
+        public override void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline = null)
         {
             if (!File.Exists(srcpath))
                 throw new Exception("src file not found");
+
+            // TODO: deadline is ignored here
 
             NamePasswordAuthentication Auth = new NamePasswordAuthentication
             {
@@ -156,7 +159,7 @@ namespace hypervisors
                 throw new hypervisorExecutionException_retryable();
         }
 
-        public override void deleteFile(string toDelete)
+        public override void deleteFile(string toDelete, cancellableDateTime deadline)
         {
             throw new NotImplementedException();
         }

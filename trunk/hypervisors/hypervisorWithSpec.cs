@@ -29,20 +29,16 @@ namespace hypervisors
             disposalCallback = newDisposalCallback;
         }
 
-        public void WaitForStatus(bool waitForState, TimeSpan timeout = default(TimeSpan))
+        public void WaitForStatus(bool waitForState, cancellableDateTime deadline = null)
         {
-            DateTime deadline;
-            if (timeout == default(TimeSpan))
-                deadline = DateTime.MaxValue;
-            else
-                deadline = DateTime.Now + timeout;
+            if (deadline == null)
+                deadline = new cancellableDateTime();
 
             // Wait for the box to go down/come up.
             Debug.Print("Waiting for box " + getBaseConnectionSpec().kernelDebugIPOrHostname + " to " + (waitForState ? "come up" : "go down"));
             while (true)
             {
-                if (DateTime.Now > deadline)
-                    throw new TimeoutException();
+                deadline.throwIfTimedOutOrCancelled();
 
                 if (waitForState)
                 {

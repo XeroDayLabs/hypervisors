@@ -16,14 +16,14 @@ namespace hypervisors
     {
         public abstract void restoreSnapshot();
         public abstract void connect();
-        public abstract void powerOn(DateTime deadline = default(DateTime));
-        public abstract void powerOff(DateTime deadline = default(DateTime));
-        public abstract void copyToGuest(string dstpath, string srcpath);
-        public abstract string getFileFromGuest(string srcpath, TimeSpan timeout = default(TimeSpan));
-        public abstract executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = default(DateTime));
+        public abstract void powerOn(cancellableDateTime deadline);
+        public abstract void powerOff(cancellableDateTime deadline);
+        public abstract void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline = null);
+        public abstract string getFileFromGuest(string srcpath, cancellableDateTime deadline = null);
+        public abstract executionResult startExecutable(string toExecute, string args, string workingdir = null, cancellableDateTime deadline = null);
         public abstract IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null);
         public abstract IAsyncExecutionResult startExecutableAsyncWithRetry(string toExecute, string args, string workingDir = null);
-        public abstract void mkdir(string newDir);
+        public abstract void mkdir(string newDir, cancellableDateTime deadline = null);
 
         protected virtual void Dispose(bool disposing)
         {
@@ -33,6 +33,16 @@ namespace hypervisors
         public void Dispose()
         {
             Dispose(true);
+        }
+
+        public void powerOn()
+        {
+            powerOn(new cancellableDateTime());
+        }
+
+        public void powerOff()
+        {
+            powerOff(new cancellableDateTime());
         }
 
         public void copyDirToGuest(string src, string dest)
@@ -49,19 +59,13 @@ namespace hypervisors
             }
         }
 
-        public static T doWithRetryOnSomeExceptions<T>(Func<SMBExecutor.triedNetworkCallRes<T>> thingtoDo, TimeSpan retryDelay = default(TimeSpan), TimeSpan timeout = default(TimeSpan), DateTime deadline = default(DateTime))
+        public static T doWithRetryOnSomeExceptions<T>(Func<SMBExecutor.triedNetworkCallRes<T>> thingtoDo, 
+            cancellableDateTime deadline = null, TimeSpan retryDelay = default(TimeSpan))
         {
             if (retryDelay == default(TimeSpan))
                 retryDelay = TimeSpan.FromSeconds(1);
-            if (timeout == default(TimeSpan))
-            {
-                if (deadline == default(DateTime))
-                    deadline = DateTime.MaxValue;
-            }
-            else
-            {
-                deadline = DateTime.Now + timeout;
-            }
+            if (deadline == null)
+                deadline = new cancellableDateTime();
 
             while (true)
             {
@@ -77,7 +81,7 @@ namespace hypervisors
                         if (res.error.Message.Contains("are insufficient for the operation"))
                             throw res.error;
                         // while others are not.
-                        if (DateTime.Now > deadline)
+                        if (!deadline.stillOK)
                             throw res.error;
                     }
                     if (!(res.error is SocketException) &&
@@ -94,7 +98,7 @@ namespace hypervisors
                     }
 
                     // throw if the deadline has passed
-                    if (DateTime.Now > deadline)
+                    if (!deadline.stillOK)
                         throw res.error;
                 }
 
@@ -103,19 +107,12 @@ namespace hypervisors
             }
         }
 
-        public static T doWithRetryOnSomeExceptions<T>(Func<T> thingtoDo, TimeSpan retryDelay = default(TimeSpan), TimeSpan timeout = default(TimeSpan), DateTime deadline = default (DateTime))
+        public static T doWithRetryOnSomeExceptions<T>(Func<T> thingtoDo, cancellableDateTime deadline = null, TimeSpan retryDelay = default(TimeSpan))
         {
             if (retryDelay == default(TimeSpan))
                 retryDelay = TimeSpan.FromSeconds(1);
-            if (timeout == default(TimeSpan))
-            {
-                if (deadline == default(DateTime))
-                    deadline = DateTime.MaxValue;
-            }
-            else
-            {
-                deadline = DateTime.Now + timeout;
-            }
+            if (deadline == null)
+                deadline = new cancellableDateTime();
 
             while (true)
             {
@@ -127,7 +124,7 @@ namespace hypervisors
                 {
                     if (e.Message.Contains("are insufficient for the operation"))
                         throw;
-                    if (DateTime.Now > deadline)
+                    if (!deadline.stillOK)
                         throw;
                 }
                 catch (Exception e)
@@ -142,7 +139,7 @@ namespace hypervisors
                         e is SshOperationTimeoutException ||
                         e is SshConnectionException)
                     {
-                        if (DateTime.Now > deadline)
+                        if (!deadline.stillOK)
                         {
                             // Oh no, deadline has passed!
                             throw;
@@ -159,15 +156,19 @@ namespace hypervisors
             }
         }
 
-
-        public static void doWithRetryOnSomeExceptions(System.Action thingtoDo, TimeSpan retry = default(TimeSpan), TimeSpan timeout = default(TimeSpan), DateTime deadline = default (DateTime))
+        public static void doWithRetryOnSomeExceptions(System.Action thingtoDo,
+            TimeSpan retry = default(TimeSpan) )
         {
-            doWithRetryOnSomeExceptions((() =>
+            doWithRetryOnSomeExceptions(thingtoDo, new cancellableDateTime(), retry);
+        }
+
+        public static void doWithRetryOnSomeExceptions(System.Action thingtoDo, cancellableDateTime deadline, TimeSpan retry = default(TimeSpan) )
+        {
+            doWithRetryOnSomeExceptions(() =>
             {
                 thingtoDo();
                 return 0; // Return a dummy value
-            }),
-                retry, timeout, deadline);
+            }, deadline, retry);
         }
 
         public void copyToGuestFromBuffer(string dstpath, byte[] srcContents)
@@ -186,6 +187,50 @@ namespace hypervisors
         public void copyToGuestFromBuffer(string dstPath, string srcContents)
         {
             copyToGuestFromBuffer(dstPath, Encoding.ASCII.GetBytes(srcContents));
+        }
+    }
+
+    public class cancellableDateTime
+    {
+        private DateTime deadline;
+        private bool isCancelled;
+
+        public cancellableDateTime()
+        {
+            deadline = DateTime.MaxValue;
+            isCancelled = false;
+        }
+
+        public cancellableDateTime(TimeSpan newTimeout)
+        {
+            deadline = DateTime.Now + newTimeout;
+            isCancelled = false;
+        }
+
+        public bool stillOK
+        {
+            get
+            {
+                if (isCancelled || DateTime.Now > deadline)
+                    return false;
+                return true;
+            }
+        }
+
+        public void throwIfTimedOutOrCancelled()
+        {
+            if (!stillOK)
+                throw new TimeoutException();
+        }
+
+        public void markCancelled()
+        {
+            isCancelled = true;
+        }
+
+        public TimeSpan getRemainingTimespan()
+        {
+            return deadline - DateTime.Now;
         }
     }
 

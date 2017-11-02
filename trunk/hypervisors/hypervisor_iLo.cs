@@ -74,11 +74,8 @@ namespace hypervisors
             }
         }
 
-        public override void powerOn(DateTime connectDeadline = default(DateTime))
+        public override void powerOn(cancellableDateTime connectDeadline)
         {
-            if (connectDeadline == default(DateTime))
-                connectDeadline = DateTime.Now + TimeSpan.FromMinutes(6);
-
             while (true)
             {
                 if (getPowerStatus() == true)
@@ -95,17 +92,15 @@ namespace hypervisors
                     ilo.tgt.powerOn();
                 }
 
-                if (DateTime.Now > connectDeadline)
+                if (!connectDeadline.stillOK)
                     throw new TimeoutException();
 
                 Thread.Sleep(TimeSpan.FromSeconds(5));
             }
 
             // Wait until the host is up enough that we can ping it...
-            TimeSpan remaining = connectDeadline - DateTime.Now;
-            if (remaining < TimeSpan.FromSeconds(0))
-                throw new TimeoutException();
-            WaitForStatus(true, remaining);
+            connectDeadline.throwIfTimedOutOrCancelled();
+            WaitForStatus(true, connectDeadline);
 
             // Now wait for it to be up enough that we can psexec to it.
             doWithRetryOnSomeExceptions(() =>
@@ -115,11 +110,8 @@ namespace hypervisors
             });
         }
 
-        public override void powerOff(DateTime deadline = default(DateTime))
+        public override void powerOff(cancellableDateTime deadline)
         {
-            if (deadline == default(DateTime))
-                deadline = DateTime.Now + TimeSpan.FromMinutes(3);
-
             refCount<hypervisor_iLo_HTTP> ilo;
             lock (_ilos)
             {
@@ -140,7 +132,7 @@ namespace hypervisors
 
                     Thread.Sleep(TimeSpan.FromSeconds(5));
 
-                    if (deadline < DateTime.Now)
+                    if (!deadline.stillOK)
                         throw new TimeoutException("Failed to turn off machine via iLo");
                 }
             }
@@ -161,16 +153,16 @@ namespace hypervisors
             }
         }
 
-        public override string getFileFromGuest(string srcpath, TimeSpan timeout = new TimeSpan())
+        public override string getFileFromGuest(string srcpath, cancellableDateTime deadline)
         {
             if (_executor == null)
                 throw new NotSupportedException();
 
-            return doWithRetryOnSomeExceptions(() => { return _executor.tryGetFileFromGuestWithRes(srcpath); }, timeout
+            return doWithRetryOnSomeExceptions(() => { return _executor.tryGetFileFromGuestWithRes(srcpath); }, deadline
                 );
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingdir = null, DateTime deadline = default(DateTime))
+        public override executionResult startExecutable(string toExecute, string args, string workingdir = null, cancellableDateTime deadline = null)
         {
             if (_executor == null)
                 throw new NotSupportedException();
@@ -192,11 +184,11 @@ namespace hypervisors
             return _executor.startExecutableAsyncWithRetry(toExecute, args, workingDir);
         }
 
-        public override void mkdir(string newDir)
+        public override void mkdir(string newDir, cancellableDateTime deadline = null)
         {
             if (_executor == null)
                 throw new NotSupportedException();
-            _executor.mkdir(newDir);
+            _executor.mkdir(newDir, deadline);
         }
 
         public override hypSpec_iLo getConnectionSpec()
@@ -204,18 +196,19 @@ namespace hypervisors
             return _spec;
         }
 
-        public override void copyToGuest(string dstpath, string srcpath)
+        public override void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline = null)
         {
             if (_executor == null)
                 throw new NotSupportedException();
-            _executor.copyToGuest(dstpath, srcpath);
+            _executor.copyToGuest(dstpath, srcpath, deadline);
         }
 
-        public void deleteFile(string toDelete)
+        public void deleteFile(string toDelete, cancellableDateTime deadline = null)
         {
             if (_executor == null)
                 throw new NotSupportedException();
-            _executor.deleteFile(toDelete);
+
+            _executor.deleteFile(toDelete, deadline);
         }
 
         public override string ToString()

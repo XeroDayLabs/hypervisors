@@ -122,7 +122,7 @@ namespace hypervisors
             throw new Exception("PSExec not found. Put it in your system PATH or install via chocolatey ('choco install sysinternals').");
         }
 
-        public override void mkdir(string newDir)
+        public override void mkdir(string newDir, cancellableDateTime deadline)
         {
             doNetworkCall(() =>
             {
@@ -130,10 +130,10 @@ namespace hypervisors
 
                 while (!Directory.Exists(destUNC))
                     Directory.CreateDirectory(destUNC);
-            }, TimeSpan.FromMinutes(2));
+            }, deadline);
         }
 
-        public override void deleteFile(string toDelete)
+        public override void deleteFile(string toDelete, cancellableDateTime deadline)
         {
             doNetworkCall(() =>
             {
@@ -143,26 +143,26 @@ namespace hypervisors
                     Directory.Delete(destUNC, true);
                 else if (File.Exists(destUNC))
                     File.Delete(destUNC);
-            }, TimeSpan.FromMinutes(2));
+            }, deadline );
         }
 
-        private void doNetworkCall(Action toRun, TimeSpan timeout)
+        private void doNetworkCall(Action toRun, cancellableDateTime deadline)
         {
             doNetworkCall(() =>
             {
                 toRun.Invoke();
                 return 0;
-            }, timeout);
+            }, deadline);
         }
 
-        private T doNetworkCall<T>(Func<T> toRun, TimeSpan timeout)
+        private T doNetworkCall<T>(Func<T> toRun, cancellableDateTime deadline)
         {
             Exception e;
             T toRet = tryDoNetworkCall(() =>
             {
                 T toRetInner = toRun.Invoke();
                 return new triedNetworkCallRes<T>() { res = toRetInner };
-            }, timeout, out e);
+            }, deadline, out e);
             if (e != null)
                 throw e;
 
@@ -176,9 +176,8 @@ namespace hypervisors
             public Exception error = null;
         }
 
-        private T tryDoNetworkCall<T>(Func<triedNetworkCallRes<T>> toRun, TimeSpan timeout, out Exception excepOrNull)
+        private T tryDoNetworkCall<T>(Func<triedNetworkCallRes<T>> toRun, cancellableDateTime deadline, out Exception excepOrNull)
         {
-            DateTime deadline = DateTime.Now + timeout;
             while (true)
             {
                 Exception e;
@@ -199,7 +198,7 @@ namespace hypervisors
                         // Retry Win32Exceptions and IOExceptions
                         if (eAsWin32 != null || e is IOException)
                         {
-                            if (DateTime.Now > deadline)
+                            if (!deadline.stillOK)
                             {
                                 // On no, we've run out of retry time :/
                                 excepOrNull = e;
@@ -233,8 +232,11 @@ namespace hypervisors
             }
         }
 
-        public override void copyToGuest(string dstPath, string srcPath)
+        public override void copyToGuest(string dstPath, string srcPath, cancellableDateTime deadline = null)
         {
+            if (deadline == null)
+                deadline  = new cancellableDateTime(TimeSpan.FromMinutes(3));
+
             if (!dstPath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
             if (!File.Exists(srcPath))
@@ -247,11 +249,13 @@ namespace hypervisors
                     destUNC += Path.GetFileName(srcPath);
 
                 File.Copy(srcPath, destUNC, true);
-            }, TimeSpan.FromMinutes(3));
+            }, deadline);
         }
 
         public override string tryGetFileFromGuest(string srcpath, out Exception e)
         {
+            cancellableDateTime deadline = new cancellableDateTime(TimeSpan.FromMinutes(5));
+
             if (!srcpath.ToLower().StartsWith("c:"))
             {
                 e = new Exception("Only C:\\ is shared");
@@ -279,8 +283,7 @@ namespace hypervisors
                 {
                     return new triedNetworkCallRes<string>() {error = new hypervisorExecutionException()};
                 }
-
-            }, TimeSpan.FromMinutes(5), out e);
+            }, deadline, out e);
         }
     }
 

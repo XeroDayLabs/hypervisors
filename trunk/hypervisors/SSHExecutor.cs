@@ -28,12 +28,12 @@ namespace hypervisors
             inf = new ConnectionInfo(_hostIp, _hostUsername, interactiveAuth, passwordAuth);
         }
 
-        public override void mkdir(string newDir)
+        public override void mkdir(string newDir, cancellableDateTime deadline)
         {
             throw new NotImplementedException();
         }
 
-        public override void copyToGuest(string dstpath, string srcpath)
+        public override void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline = null)
         {
             if (!File.Exists(srcpath))
                 throw new Exception("src file not found");
@@ -66,12 +66,12 @@ namespace hypervisors
             }
         }
 
-        public override void deleteFile(string toDelete)
+        public override void deleteFile(string toDelete, cancellableDateTime deadline)
         {
             throw new NotImplementedException();
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingDir = null, TimeSpan timeout = default(TimeSpan))
+        public override executionResult startExecutable(string toExecute, string args, string workingDir = null, cancellableDateTime deadline = null)
         {
             if (workingDir != null)
                 throw new NotSupportedException();

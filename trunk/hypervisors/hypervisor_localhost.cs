@@ -16,15 +16,15 @@ namespace hypervisors
         {
         }
 
-        public override void powerOn(DateTime deadline = default(DateTime))
+        public override void powerOn(cancellableDateTime deadline)
         {
         }
 
-        public override void powerOff(DateTime deadline = default(DateTime))
+        public override void powerOff(cancellableDateTime deadline)
         {
         }
 
-        public override void copyToGuest(string dstpath, string srcpath)
+        public override void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline)
         {
             if (dstpath.EndsWith("\\"))
                 dstpath += Path.GetFileName(dstpath);
@@ -34,18 +34,18 @@ namespace hypervisors
             File.Copy(dstpath, srcpath);
         }
 
-        public override string getFileFromGuest(string srcpath, TimeSpan timeout = default(TimeSpan))
+        public override string getFileFromGuest(string srcpath, cancellableDateTime deadline)
         {
             return File.ReadAllText(srcpath);
         }
 
-        public override executionResult startExecutable(string toExecute, string args, string workingDir = null, DateTime deadline = default(DateTime))
+        public override executionResult startExecutable(string toExecute, string args, string workingDir = null, cancellableDateTime deadline = null)
         {
             if (workingDir == null)
                 workingDir = "C:\\";
 
-            if (deadline == default(DateTime))
-                deadline = DateTime.Now + TimeSpan.FromDays(7);
+            if (deadline == null)
+                deadline = new cancellableDateTime();
 
             ProcessStartInfo ps = new ProcessStartInfo(toExecute, args);
             ps.UseShellExecute = false;
@@ -54,7 +54,7 @@ namespace hypervisors
             ps.WorkingDirectory = workingDir;
             using (Process process = Process.Start(ps))
             {
-                TimeSpan timeout = deadline - DateTime.Now;
+                TimeSpan timeout = deadline.getRemainingTimespan();
                 if (!process.WaitForExit((int) timeout.TotalMilliseconds))
                     throw new TimeoutException();
 
@@ -82,7 +82,7 @@ namespace hypervisors
             return startExecutableAsync(toExecute, args, workingDir);
         }
 
-        public override void mkdir(string newDir)
+        public override void mkdir(string newDir, cancellableDateTime deadline)
         {
             Directory.CreateDirectory(newDir);
         }
