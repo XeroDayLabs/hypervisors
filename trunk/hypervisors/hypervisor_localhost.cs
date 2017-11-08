@@ -24,6 +24,11 @@ namespace hypervisors
         {
         }
 
+        public override void WaitForStatus(bool isPowerOn, cancellableDateTime deadline)
+        {
+            
+        }
+
         public override void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline)
         {
             if (dstpath.EndsWith("\\"))

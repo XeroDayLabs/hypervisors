@@ -318,6 +318,16 @@ namespace hypervisors
         private string _freeNASPassword;
 
         public hypervisor_vmware_FreeNAS(hypSpec_vmware spec,
+            NASParams nasParams,
+            clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
+            : base(spec, newExecMethod)
+        {
+            _freeNASIP = nasParams.IP;
+            _freeNASUsername = nasParams.username;
+            _freeNASPassword = nasParams.password;
+        }
+
+        public hypervisor_vmware_FreeNAS(hypSpec_vmware spec,
             string freeNasip, string freeNasUsername, string freeNasPassword, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
             : base(spec, newExecMethod)
         {
@@ -329,6 +339,11 @@ namespace hypervisors
         public override void restoreSnapshot()
         {
             freeNASSnapshot.restoreSnapshot(this, _freeNASIP, _freeNASUsername, _freeNASPassword);
+        }
+
+        public override void WaitForStatus(bool isPowerOn, cancellableDateTime deadline)
+        {
+            throw new NotImplementedException();
         }
     }
 
@@ -353,6 +368,11 @@ namespace hypervisors
             // and revert it.
             VirtualMachineSnapshot shot = new VirtualMachineSnapshot(_vClient, snapshot.Snapshot);
             shot.RevertToSnapshot(vm.MoRef, false);
+        }
+
+        public override void WaitForStatus(bool isPowerOn, cancellableDateTime deadline)
+        {
+            throw new NotImplementedException();
         }
 
         private VirtualMachineSnapshotTree findRecusively(VirtualMachineSnapshotTree[] parent, string snapshotNameOrID)

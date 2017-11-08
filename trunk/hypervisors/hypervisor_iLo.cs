@@ -92,22 +92,21 @@ namespace hypervisors
                     ilo.tgt.powerOn();
                 }
 
-                if (!connectDeadline.stillOK)
-                    throw new TimeoutException();
+                connectDeadline.throwIfTimedOutOrCancelled();
 
                 Thread.Sleep(TimeSpan.FromSeconds(5));
             }
 
             // Wait until the host is up enough that we can ping it...
             connectDeadline.throwIfTimedOutOrCancelled();
-            WaitForStatus(true, connectDeadline);
+            waitForPingability(true, connectDeadline);
 
             // Now wait for it to be up enough that we can psexec to it.
             doWithRetryOnSomeExceptions(() =>
             {
                 _executor.testConnectivity();
                 return 0;
-            });
+            }, connectDeadline);
         }
 
         public override void powerOff(cancellableDateTime deadline)
@@ -138,6 +137,28 @@ namespace hypervisors
             }
         }
 
+        public override void WaitForStatus(bool isPowerOn, cancellableDateTime deadline)
+        {
+            if (isPowerOn)
+            {
+                doWithRetryOnSomeExceptions(() =>
+                {
+                    _executor.testConnectivity();
+                    return 0;
+                }, deadline);
+            }
+            else
+            {
+                while (true)
+                {
+                    if (getPowerStatus() == false)
+                        break;
+                    deadline.throwIfTimedOutOrCancelled();
+
+                    Thread.Sleep(TimeSpan.FromSeconds(1));
+                }
+            }
+        }
 
         public override bool getPowerStatus()
         {

@@ -29,7 +29,7 @@ namespace hypervisors
             disposalCallback = newDisposalCallback;
         }
 
-        public void WaitForStatus(bool waitForState, cancellableDateTime deadline = null)
+        public void waitForPingability(bool waitForState, cancellableDateTime deadline = null)
         {
             if (deadline == null)
                 deadline = new cancellableDateTime();

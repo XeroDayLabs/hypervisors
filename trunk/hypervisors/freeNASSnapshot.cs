@@ -7,6 +7,11 @@ namespace hypervisors
 {
     public static class freeNASSnapshot
     {
+        public static void restoreSnapshot<T>(hypervisorWithSpec<T> hyp, NASParams nasParams)
+        {
+            restoreSnapshot(hyp, nasParams.IP, nasParams.username, nasParams.password);
+        }
+
         public static void restoreSnapshot<T>(hypervisorWithSpec<T> hyp, string freeNASIP, string freeNASUsername, string freeNASPassword)
         {
             hypSpec_withWindbgKernel _spec = hyp.getBaseConnectionSpec();

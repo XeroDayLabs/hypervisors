@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
@@ -57,12 +58,31 @@ namespace hypervisors
         public abstract List<iscsiPortal> getPortals();
     }
 
+    [DataContract]
+    public class NASParams
+    {
+        [DataMember]
+        public string IP;
+
+        [DataMember]
+        public string username;
+        
+        [DataMember]
+        public string password;
+    }
+
     public class FreeNAS : NASAccess
     {
         private readonly string _serverIp;
         private readonly string _username;
         private readonly string _password;
         private readonly CookieContainer cookies = new CookieContainer();
+
+        /// <summary>
+        /// If we do multiple non-API requests in parallel, we will run afoul of FreeNAS's CSRF protection, so lock this and just 
+        /// do one at a time. We could manage different sessions properly for some speedup here.
+        /// </summary>
+        private readonly Object nonAPIReqLock = new Object();
 
         public FreeNAS(hypSpec_iLo hyp)
         {
@@ -76,6 +96,12 @@ namespace hypervisors
             _serverIp = serverIP;
             _username = username;
             _password = password;
+        }
+
+        public FreeNAS(NASParams parms)
+            : this(parms.IP, parms.username, parms.password)
+        {
+            
         }
 
         private resp doReq(string url, string method, HttpStatusCode expectedCode, string payload = null)
@@ -182,14 +208,17 @@ namespace hypervisors
         {
             // Oh no, the freenas API keeps returning HTTP 404 when I try to delete a volume! :( We ignore it and use the web UI
             // instead. ;_;
-            DoNonAPIReq("", HttpStatusCode.OK);
-            string url = "account/login/";
-            string payloadStr = string.Format("username={0}&password={1}", _username, _password);
-            DoNonAPIReq(url, HttpStatusCode.OK, payloadStr);
-            // Now we can do the request to delete the snapshot.
-            string resp = DoNonAPIReq("storage/zvol/delete/" + toDelete.path + "/", HttpStatusCode.OK, "");
-            if (resp.Contains("\"error\": true") || !resp.Contains("Volume successfully destroyed"))
-                throw new nasAccessException("Volume deletion failed: " + resp);
+            lock (nonAPIReqLock)
+            {
+                DoNonAPIReq("", HttpStatusCode.OK);
+                string url = "account/login/";
+                string payloadStr = string.Format("username={0}&password={1}", _username, _password);
+                DoNonAPIReq(url, HttpStatusCode.OK, payloadStr);
+                // Now we can do the request to delete the snapshot.
+                string resp = DoNonAPIReq("storage/zvol/delete/" + toDelete.path + "/", HttpStatusCode.OK, "");
+                if (resp.Contains("\"error\": true") || !resp.Contains("Volume successfully destroyed"))
+                    throw new nasAccessException("Volume deletion failed: " + resp);
+            }
         }
 
         public override void deleteISCSIExtent(iscsiExtent extent)
@@ -262,23 +291,27 @@ namespace hypervisors
 
         public override void rollbackSnapshot(snapshot shotToRestore) //, volume parentVolume, volume clone)
         {
-            // Oh no, FreeNAS doesn't export the 'rollback' command via the API! :( We need to log into the web UI and faff with 
-            // that in order to rollback instead.
-            //
-            // First, do an initial GET to / so we can get a CSRF token and some cookies.
-            DoNonAPIReq("", HttpStatusCode.OK);
-            //doInitialReq();
+            lock (nonAPIReqLock)
+            {
+                // Oh no, FreeNAS doesn't export the 'rollback' command via the API! :( We need to log into the web UI and faff with 
+                // that in order to rollback instead.
+                //
+                // First, do an initial GET to / so we can get a CSRF token and some cookies.
+                DoNonAPIReq("", HttpStatusCode.OK);
+                //doInitialReq();
 
-            // Now we can perform the login.
-            string url = "account/login/";
-            string payloadStr = string.Format("username={0}&password={1}", _username, _password);
-            DoNonAPIReq(url, HttpStatusCode.OK, payloadStr);
+                // Now we can perform the login.
+                string url = "account/login/";
+                string payloadStr = string.Format("username={0}&password={1}", _username, _password);
+                DoNonAPIReq(url, HttpStatusCode.OK, payloadStr);
 
-            // Now we can do the request to rollback the snapshot.
-            string resp = DoNonAPIReq("storage/snapshot/rollback/" + shotToRestore.fullname + "/", HttpStatusCode.OK, "");
+                // Now we can do the request to rollback the snapshot.
+                string resp = DoNonAPIReq("storage/snapshot/rollback/" + shotToRestore.fullname + "/", HttpStatusCode.OK,
+                    "");
 
-            if (resp.Contains("\"error\": true") || !resp.Contains("Rollback successful."))
-                throw new nasAccessException("Rollback failed: " + resp);
+                if (resp.Contains("\"error\": true") || !resp.Contains("Rollback successful."))
+                    throw new nasAccessException("Rollback failed: " + resp);
+            }
         }
 
         private string DoNonAPIReq(string urlRel, HttpStatusCode expectedCode, string postVars = null)
