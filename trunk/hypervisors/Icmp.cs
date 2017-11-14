@@ -21,7 +21,7 @@ namespace Org.Mentalis.Network
 
         public bool Ping(TimeSpan timeout)
         {
-            ProcessStartInfo psi = new ProcessStartInfo("ping.exe", "-n 1 -w timeout " + _hostnameOrIp);
+            ProcessStartInfo psi = new ProcessStartInfo("ping.exe", string.Format("-n 1 -w {0} {1}", timeout.TotalMilliseconds, _hostnameOrIp));
 
             using (Process p = Process.Start(psi))
             {
