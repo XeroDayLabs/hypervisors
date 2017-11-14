@@ -294,6 +294,30 @@ namespace hypervisors
                 return false;
         }
 
+
+        public override void WaitForStatus(bool isPowerOn, cancellableDateTime deadline)
+        {
+            if (isPowerOn)
+            {
+                doWithRetryOnSomeExceptions(() =>
+                {
+                    executor.testConnectivity();
+                    return 0;
+                }, deadline);
+            }
+            else
+            {
+                while (true)
+                {
+                    if (getPowerStatus() == false)
+                        break;
+                    deadline.throwIfTimedOutOrCancelled();
+
+                    Thread.Sleep(TimeSpan.FromSeconds(1));
+                }
+            }
+        }
+
         public override string ToString()
         {
             return string.Format("{0}:{1}", _spec.kernelDebugIPOrHostname, _spec.kernelDebugPort);
@@ -340,11 +364,6 @@ namespace hypervisors
         {
             freeNASSnapshot.restoreSnapshot(this, _freeNASIP, _freeNASUsername, _freeNASPassword);
         }
-
-        public override void WaitForStatus(bool isPowerOn, cancellableDateTime deadline)
-        {
-            throw new NotImplementedException();
-        }
     }
 
     /// <summary>
@@ -368,11 +387,6 @@ namespace hypervisors
             // and revert it.
             VirtualMachineSnapshot shot = new VirtualMachineSnapshot(_vClient, snapshot.Snapshot);
             shot.RevertToSnapshot(vm.MoRef, false);
-        }
-
-        public override void WaitForStatus(bool isPowerOn, cancellableDateTime deadline)
-        {
-            throw new NotImplementedException();
         }
 
         private VirtualMachineSnapshotTree findRecusively(VirtualMachineSnapshotTree[] parent, string snapshotNameOrID)
