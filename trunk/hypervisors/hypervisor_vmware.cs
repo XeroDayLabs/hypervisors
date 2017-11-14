@@ -69,8 +69,8 @@ namespace hypervisors
             while (true)
             {
                 Icmp pinger = new Icmp(_spec.kernelVMServer);
-                TimeSpan res = pinger.Ping(TimeSpan.FromSeconds(3));
-                if (res != TimeSpan.MaxValue)
+
+                if (pinger.Ping(TimeSpan.FromSeconds(3)))
                 {
                     // Success, so continue.
                     break;
