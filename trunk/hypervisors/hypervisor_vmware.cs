@@ -6,6 +6,7 @@ using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Web.Services.Protocols;
+using Org.Mentalis.Network;
 using VMware.Vim;
 
 namespace hypervisors
@@ -67,9 +68,9 @@ namespace hypervisors
             int pingRetries = 5;
             while (true)
             {
-                bool pingOK = Icmp.Ping(Dns.GetHostAddresses(_spec.kernelVMServer).First());
-
-                if (pingOK)
+                Icmp pinger = new Icmp(_spec.kernelVMServer);
+                TimeSpan res = pinger.Ping(TimeSpan.FromSeconds(3));
+                if (res != TimeSpan.MaxValue)
                 {
                     // Success, so continue.
                     break;

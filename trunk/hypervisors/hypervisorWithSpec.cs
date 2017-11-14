@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading;
+using Org.Mentalis.Network;
 
 namespace hypervisors
 {
@@ -41,12 +42,13 @@ namespace hypervisors
 
                 if (waitForState)
                 {
-                    bool pingOK = Icmp.Ping(Dns.GetHostAddresses(getBaseConnectionSpec().kernelDebugIPOrHostname).First());
+                    Icmp pinger = new Icmp(Dns.GetHostAddresses(getBaseConnectionSpec().kernelDebugIPOrHostname).First());
 
-                    if (pingOK)
+                    TimeSpan res = pinger.Ping(TimeSpan.FromMilliseconds(500));
+                    if (res != TimeSpan.MaxValue)
                     {
                         Debug.Print(".. Box " + getBaseConnectionSpec().kernelDebugIPOrHostname + " pingable, giving it a few more seconds..");
-                        Thread.Sleep(TimeSpan.FromSeconds(10));
+                        Thread.Sleep(10*1000);
                         break;
                     }
                 }
