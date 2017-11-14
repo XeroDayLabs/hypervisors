@@ -1,3 +1,2 @@
-set dir=%RANDOM%
-mkdir "\\applejack\incomingSymbols\%dir%"
-copy "%1\*.pdb" "\\applejack\incomingSymbols\%dir%\"
+%SystemRoot%\system32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File %1\\uploadsymbols.ps1 %2
+
