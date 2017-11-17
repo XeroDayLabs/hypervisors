@@ -69,12 +69,13 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Newtonsoft.Json, Version=4.5.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(Solutiondir)\..\ThirdParty\json.net\Newtonsoft.Json.dll</HintPath>
+    <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>$(Solutiondir)\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="Renci.SshNet">
-      <HintPath>$(Solutiondir)\..\ThirdParty\sshnet\Renci.SshNet.dll</HintPath>
+    <Reference Include="Renci.SshNet, Version=2016.1.0.0, Culture=neutral, PublicKeyToken=1cee9f8bde3db106, processorArchitecture=MSIL">
+      <HintPath>$(Solutiondir)\packages\SSH.NET.2016.1.0\lib\net40\Renci.SshNet.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -89,14 +90,17 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="VimService60">
-      <HintPath>$(Solutiondir)\..\ThirdParty\vmware\VimService60.dll</HintPath>
+    <Reference Include="VimService60, Version=6.0.0.0, Culture=neutral, PublicKeyToken=10980b081e887e9f, processorArchitecture=MSIL">
+      <HintPath>$(Solutiondir)\packages\VMware.Vim.6.0.0.280\lib\Net40\VimService60.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="VimService60.XmlSerializers">
-      <HintPath>$(Solutiondir)\..\ThirdParty\vmware\VimService60.XmlSerializers.dll</HintPath>
+    <Reference Include="VimService60.XmlSerializers, Version=6.0.0.0, Culture=neutral, PublicKeyToken=10980b081e887e9f, processorArchitecture=MSIL">
+      <HintPath>$(Solutiondir)\packages\VMware.Vim.6.0.0.280\lib\Net40\VimService60.XmlSerializers.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="VMware.Vim">
-      <HintPath>$(Solutiondir)\..\ThirdParty\vmware\VMware.Vim.dll</HintPath>
+    <Reference Include="VMware.Vim, Version=6.0.0.0, Culture=neutral, PublicKeyToken=10980b081e887e9f, processorArchitecture=MSIL">
+      <HintPath>$(Solutiondir)\packages\VMware.Vim.6.0.0.280\lib\Net40\VMware.Vim.dll</HintPath>
+      <Private>True</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -124,7 +128,13 @@
     <Compile Include="temporaryFile.cs" />
     <Compile Include="vmwareRemoteExecutor.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>"$(SolutionDir)\uploadsymbols.bat" "$(SolutionDir)" "$(TargetDir)"</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

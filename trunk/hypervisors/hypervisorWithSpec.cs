@@ -44,11 +44,10 @@ namespace hypervisors
                 {
                     Icmp pinger = new Icmp(Dns.GetHostAddresses(getBaseConnectionSpec().kernelDebugIPOrHostname).First());
 
-                    TimeSpan res = pinger.Ping(TimeSpan.FromMilliseconds(500));
-                    if (res != TimeSpan.MaxValue)
+                    if (pinger.Ping(TimeSpan.FromMilliseconds(500)))
                     {
                         Debug.Print(".. Box " + getBaseConnectionSpec().kernelDebugIPOrHostname + " pingable, giving it a few more seconds..");
-                        Thread.Sleep(10*1000);
+                        Thread.Sleep(TimeSpan.FromSeconds(10));
                         break;
                     }
                 }
