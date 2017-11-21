@@ -19,10 +19,12 @@ namespace hypervisors
 
         private string _baseURL;
 
-        private string _sessionKey;
+        public string _sessionKey;
         private CookieContainer _cookies = new CookieContainer();
 
         public int retries = 10;
+
+        public bool logoutOnDisposal = true;
 
         public hypervisor_iLo_HTTP(string ip, string username, string password)
         {
@@ -285,12 +287,18 @@ namespace hypervisors
         {
             try
             {
-                _doRequest("login_session", "logout");
+                if (logoutOnDisposal)
+                    _doRequest("login_session", "logout");
             }
             catch (Exception)
             {
                 // .. oh well ..
             }
+        }
+
+        public string makeHPLOLink()
+        {
+            return String.Format("hplocons://addr={0}&name={1}&sessionkey={2}", _ip, _username, _sessionKey);
         }
     }
 

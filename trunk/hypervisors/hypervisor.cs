@@ -79,7 +79,8 @@ namespace hypervisors
                     if (res.error is VimException)
                     {
                         // This VimException is fatal
-                        if (res.error.Message.Contains("are insufficient for the operation"))
+                        if (res.error.Message.Contains("are insufficient for the operation") ||
+                            res.error.Message.Contains("Permission to perform this operation was denied."))
                             throw res.error;
                         // while others are not.
                         if (!deadline.stillOK)
@@ -123,7 +124,8 @@ namespace hypervisors
                 }
                 catch (VimException e)
                 {
-                    if (e.Message.Contains("are insufficient for the operation"))
+                    if (e.Message.Contains("are insufficient for the operation") ||
+                        e.Message.Contains("Permission to perform this operation was denied."))
                         throw;
                     if (!deadline.stillOK)
                         throw;
