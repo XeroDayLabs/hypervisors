@@ -9,16 +9,21 @@ namespace hypervisors
     {
         public string filename { get; private set;  }
 
-        public temporaryFile()
+        public temporaryFile(bool generateFilename = true)
         {
-            filename = Path.GetTempFileName();
+            if (generateFilename)
+                filename = Path.GetTempFileName();
+            else
+                filename = null;
         }
 
         public temporaryFile(string fileExtension)
         {
             filename = Path.GetTempFileName();
             deleteFile(filename);
-            filename = filename + "_" + Guid.NewGuid() + ".bat";
+            if (!fileExtension.StartsWith("."))
+                fileExtension = "." + fileExtension;
+            filename = filename + "_" + Guid.NewGuid() + fileExtension;
         }
 
         public void Dispose()
@@ -54,6 +59,13 @@ namespace hypervisors
         public void WriteAllText(string contents)
         {
             File.WriteAllText(filename, contents);
+        }
+
+        public static temporaryFile wrapExistingFile(string tempFilename)
+        {
+            temporaryFile toRet = new temporaryFile(false);
+            toRet.filename = tempFilename;
+            return toRet;
         }
     }
 }
