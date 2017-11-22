@@ -6,7 +6,6 @@ using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Web.Services.Protocols;
-using Org.Mentalis.Network;
 using VMware.Vim;
 
 namespace hypervisors
