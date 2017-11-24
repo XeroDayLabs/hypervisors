@@ -53,13 +53,16 @@ namespace hypervisors
         }
     }
 
+    /// <summary>
+    /// We throw this only if we really, really have to. It indicates that the target is unusable until we reboot it.
+    /// </summary>
     [Serializable()]
-    public class psExecException : Exception
+    public class targetNeedsRebootingException : Exception
     {
         public readonly string stderr;
         public readonly int exitCode;
 
-        public psExecException(string stderr, int exitCode)
+        public targetNeedsRebootingException(string stderr, int exitCode)
             : base("PSExec error " + exitCode)
         {
             this.stderr = stderr;
@@ -67,7 +70,7 @@ namespace hypervisors
         }
 
         // Needed for serialisation, apparently
-        protected psExecException(SerializationInfo info, StreamingContext ctx)
+        protected targetNeedsRebootingException(SerializationInfo info, StreamingContext ctx)
             : base(info, ctx)
         {
         }

@@ -90,6 +90,15 @@ namespace hypervisors
                     return null;
                 if (!psexecStdErr.Contains(" started on " + _guestIP + " with process ID "))
                     return null;
+                if (psexecStdErr.Contains("The specified service has been marked for deletion."))
+                {
+                    // Oh no!! This means that psexec, on the target machine, is left in a non-functional state. Attempts to use
+                    // it to start any processes will fail D:
+                    // I can't fid a way to recover from this, so we have to force a machine reboot here DDD: Hopefully it only
+                    // happens during deployment of the fuzzer (?), in which case we can recover just by deploying again. 
+                    // I think we need a better way to execute remotely, PSExec may not be the best :(
+                    throw new targetNeedsRebootingException(psexecStdErr, proc.ExitCode);
+                }
 
                 // Note that we can't check the return status here, since psexec returns a PID :/
                 return new asyncExecutionResultViaFile(this, fileSet);
@@ -101,13 +110,8 @@ namespace hypervisors
             // Search the system PATH, and also these two hardcoded locations.
             List<string> candidates = new List<string>();
             candidates.AddRange(Environment.GetEnvironmentVariable("PATH").Split(';')); // Check it out, an old-school injection here! Can you spot it?
-            candidates.AddRange(new string[]
-            {
-                // Chocolatey installs to this path by default, but also installs the 64-bit version by default.
-                @"C:\ProgramData\chocolatey\bin",
-                @"C:\ProgramData\chocolatey\bin"
-            }
-                );
+            // Chocolatey installs to this path by default
+            candidates.Add(@"C:\ProgramData\chocolatey\bin");
             foreach (string candidatePath in candidates)
             {
                 string psExecPath32 = Path.Combine(candidatePath, "psexec.exe");
