@@ -91,15 +91,15 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
     <Reference Include="VimService60, Version=6.0.0.0, Culture=neutral, PublicKeyToken=10980b081e887e9f, processorArchitecture=MSIL">
-      <HintPath>$(Solutiondir)\packages\VMware.Vim.6.0.0.280\lib\Net40\VimService60.dll</HintPath>
+      <HintPath>$(Solutiondir)\packages\VMware.Vim.6.280.0.1\lib\Net45\VimService60.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="VimService60.XmlSerializers, Version=6.0.0.0, Culture=neutral, PublicKeyToken=10980b081e887e9f, processorArchitecture=MSIL">
-      <HintPath>$(Solutiondir)\packages\VMware.Vim.6.0.0.280\lib\Net40\VimService60.XmlSerializers.dll</HintPath>
+      <HintPath>$(Solutiondir)\packages\VMware.Vim.6.280.0.1\lib\Net45\VimService60.XmlSerializers.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="VMware.Vim, Version=6.0.0.0, Culture=neutral, PublicKeyToken=10980b081e887e9f, processorArchitecture=MSIL">
-      <HintPath>$(Solutiondir)\packages\VMware.Vim.6.0.0.280\lib\Net40\VMware.Vim.dll</HintPath>
+      <HintPath>$(Solutiondir)\packages\VMware.Vim.6.280.0.1\lib\Net45\VMware.Vim.dll</HintPath>
       <Private>True</Private>
     </Reference>
   </ItemGroup>
