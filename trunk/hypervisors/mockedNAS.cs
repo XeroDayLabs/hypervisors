@@ -141,6 +141,14 @@ namespace hypervisors
             }
         }
 
+        public override void waitUntilISCSIConfigFlushed()
+        {
+            lock (events)
+            {
+                events.Add(new mockedCall("waitUntilISCSIConfigFlushed"));
+            }
+        }
+
         public override List<snapshot> getSnapshots()
         {
             lock (events)
@@ -154,7 +162,7 @@ namespace hypervisors
             }
         }
 
-        public override snapshot deleteSnapshot(snapshot toDelete)
+        public override void deleteSnapshot(snapshot toDelete)
         {
             lock (events)
             {
@@ -165,8 +173,6 @@ namespace hypervisors
             {
                 snapshots.Remove(toDelete.id);
             }
-
-            return toDelete;
         }
 
         public override snapshot createSnapshot(string dataset, string snapshotName)

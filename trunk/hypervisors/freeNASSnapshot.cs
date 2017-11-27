@@ -54,6 +54,7 @@ namespace hypervisors
                 // Re-add the extent and target-to-extent mapping.
                 iscsiExtent newExtent = nas.addISCSIExtent(shotObjects.extent);
                 nas.addISCSITargetToExtent(shotObjects.tgtToExtent.iscsi_target, newExtent);
+                nas.waitUntilISCSIConfigFlushed();
             }
         }
 

@@ -49,6 +49,9 @@ namespace hypervisors
             {
                 try
                 {
+                    if (_cookies.Count == 0)
+                        connect();
+
                     try
                     {
                         return _doRequest(pageName, methodName, isPost);

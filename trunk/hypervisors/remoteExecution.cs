@@ -71,16 +71,16 @@ namespace hypervisors
             }
         }
 
-        public void withRetryUntilSuccess(Action action)
+        public void withRetryUntilSuccess(Action action, cancellableDateTime deadline)
         {
             withRetryUntilSuccess<int>(() =>
             {
                 action.Invoke();
                 return 0;
-            });
+            }, deadline);
         }
 
-        public T withRetryUntilSuccess<T>(Func<SMBExecutor.triedNetworkCallRes<T>> action)
+        public T withRetryUntilSuccess<T>(Func<SMBExecutor.triedNetworkCallRes<T>> action, cancellableDateTime deadline)
         {
             while (true)
             {
@@ -97,13 +97,17 @@ namespace hypervisors
                     {
                         throw res.error;
                     }
+                    if (!deadline.stillOK)
+                        throw res.error;
                 }
 
                 Thread.Sleep(TimeSpan.FromSeconds(3));
+                if (!deadline.stillOK)
+                    throw new TimeoutException();
             }
         }
 
-        public T withRetryUntilSuccess<T>(Func<T> action)
+        public T withRetryUntilSuccess<T>(Func<T> action, cancellableDateTime deadline)
         {
             while (true)
             {
@@ -126,7 +130,11 @@ namespace hypervisors
                 catch (VimException)
                 {
                 }
+
                 Thread.Sleep(TimeSpan.FromSeconds(3));
+
+                if (!deadline.stillOK)
+                    throw new TimeoutException();
             }
         }
 
@@ -160,8 +168,8 @@ namespace hypervisors
                 // And the payload batch.
                 payloadBatch.WriteAllText(string.Format("@{0} {1}", toExecute, args));
                 // Then, copy them to the guest.
-                withRetryUntilSuccess(() => copyToGuest(launcherRemotePath, launcherTemp.filename));
-                withRetryUntilSuccess(() => copyToGuest(payloadRemotePath, payloadBatch.filename));
+                withRetryUntilSuccess(() => copyToGuest(launcherRemotePath, launcherTemp.filename), new cancellableDateTime(TimeSpan.FromMinutes(10)));
+                withRetryUntilSuccess(() => copyToGuest(payloadRemotePath, payloadBatch.filename), new cancellableDateTime(TimeSpan.FromMinutes(10)));
 
                 // Now return info about what files we're going to use, so the caller can.. use them.
                 return new execFileSet(stdOutFilename, stdErrFilename, returnCodeFilename, launcherRemotePath);

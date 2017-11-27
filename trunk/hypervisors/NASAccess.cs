@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -38,9 +39,10 @@ namespace hypervisors
 
         public abstract List<iscsiTarget> getISCSITargets();
         public abstract void deleteISCSITarget(iscsiTarget tgt);
+        public abstract void waitUntilISCSIConfigFlushed();
 
         public abstract List<snapshot> getSnapshots();
-        public abstract snapshot deleteSnapshot(snapshot toDelete);
+        public abstract void deleteSnapshot(snapshot toDelete);
         public abstract snapshot createSnapshot(string dataset, string snapshotName);
         public abstract void cloneSnapshot(snapshot toClone, string fullCloneName);
 
@@ -56,6 +58,7 @@ namespace hypervisors
         public abstract targetGroup addTargetGroup(targetGroup tgtGrp, iscsiTarget newTarget);
 
         public abstract List<iscsiPortal> getPortals();
+
     }
 
     [DataContract]
@@ -71,6 +74,264 @@ namespace hypervisors
         public string password;
     }
 
+    public class FreeNASWithCaching :  NASAccess
+    {
+        private ConcurrentDictionary<int, iscsiTargetToExtentMapping> TTEExtents = new ConcurrentDictionary<int, iscsiTargetToExtentMapping>();
+        private ConcurrentDictionary<int, iscsiExtent> extents = new ConcurrentDictionary<int, iscsiExtent>();
+        private ConcurrentDictionary<int, iscsiTarget> targets = new ConcurrentDictionary<int, iscsiTarget>();
+        private ConcurrentDictionary<int, volume> volumes = new ConcurrentDictionary<int, volume>();
+        private ConcurrentDictionary<string, snapshot> snapshots = new ConcurrentDictionary<string, snapshot>();
+        private ConcurrentDictionary<string, targetGroup> targetGroups = new ConcurrentDictionary<string, targetGroup>();
+        private ConcurrentDictionary<string, iscsiPortal> portals = new ConcurrentDictionary<string, iscsiPortal>();
+
+        private readonly FreeNAS uncachedNAS;
+
+        private int waitingISCSIOperations = 0;
+        private ConcurrentDictionary<int, bool> dirtyISCSIThreads = new ConcurrentDictionary<int, bool>();
+
+        public FreeNASWithCaching(hypSpec_iLo hyp)
+        {
+            uncachedNAS = new FreeNAS(hyp);
+            init();
+        }
+
+        public FreeNASWithCaching(string serverIP, string username, string password)
+        {
+            uncachedNAS = new FreeNAS(serverIP, username, password);
+            init();
+        }
+
+        public FreeNASWithCaching(NASParams parms)
+        {
+            uncachedNAS = new FreeNAS(parms);
+            init();
+        }
+
+        private void init()
+        {
+            uncachedNAS.getTargetToExtents().ForEach(x => TTEExtents.TryAdd(x.id, x));
+            uncachedNAS.getExtents().ForEach(x => extents.TryAdd(x.id, x));
+            uncachedNAS.getISCSITargets().ForEach(x => targets.TryAdd(x.id, x));
+            uncachedNAS.getVolumes().ForEach(x => volumes.TryAdd(x.id, x));
+            uncachedNAS.getSnapshots().ForEach(x => snapshots.TryAdd(x.id, x));
+            uncachedNAS.getTargetGroups().ForEach(x => targetGroups.TryAdd(x.id, x));
+            uncachedNAS.getPortals().ForEach(x => portals.TryAdd(x.id, x));
+        }
+        
+        public override iscsiTargetToExtentMapping addISCSITargetToExtent(int iscsiTarget, iscsiExtent newExtent)
+        {
+            lock (this)
+            {
+                waitingISCSIOperations++;
+            }
+
+            iscsiTargetToExtentMapping newMapping = uncachedNAS.addISCSITargetToExtent(iscsiTarget, newExtent);
+            TTEExtents.TryAdd(newMapping.id, newMapping);
+
+            lock (this)
+            {
+                waitingISCSIOperations--;
+            }
+
+            markThisThreadISCSIDirty();
+
+            return newMapping;
+        }
+
+        private void markThisThreadISCSIDirty()
+        {
+            if (!dirtyISCSIThreads.ContainsKey(Thread.CurrentThread.ManagedThreadId))
+                dirtyISCSIThreads.TryAdd(Thread.CurrentThread.ManagedThreadId, false);
+            dirtyISCSIThreads[Thread.CurrentThread.ManagedThreadId] = true;
+        }
+
+        public override void deleteISCSITargetToExtent(iscsiTargetToExtentMapping tgtToExtent)
+        {
+            lock (this)
+            {
+                waitingISCSIOperations++;
+            }
+            uncachedNAS.deleteISCSITargetToExtent(tgtToExtent);
+            iscsiTargetToExtentMapping foo;
+            TTEExtents.TryRemove(tgtToExtent.id, out foo);
+            lock (this)
+            {
+                waitingISCSIOperations--;
+            }
+            markThisThreadISCSIDirty();
+        }
+
+        public override List<iscsiTargetToExtentMapping> getTargetToExtents()
+        {
+            return TTEExtents.Values.ToList();
+        }
+
+        public override iscsiExtent addISCSIExtent(iscsiExtent extent)
+        {
+            lock (this)
+            {
+                waitingISCSIOperations++;
+            }
+            iscsiExtent newVal = uncachedNAS.addISCSIExtent(extent);
+            extents.TryAdd(newVal.id, newVal);
+            lock (this)
+            {
+                waitingISCSIOperations--;
+            }
+            markThisThreadISCSIDirty();
+            return newVal;
+        }
+
+        public override void deleteISCSIExtent(iscsiExtent extent)
+        {
+            lock (this)
+            {
+                waitingISCSIOperations++;
+            }
+            uncachedNAS.deleteISCSIExtent(extent);
+            iscsiExtent foo;
+            extents.TryRemove(extent.id, out foo);
+            lock (this)
+            {
+                waitingISCSIOperations--;
+            }
+            markThisThreadISCSIDirty();
+        }
+
+        public override List<iscsiExtent> getExtents()
+        {
+            return extents.Values.ToList();
+        }
+
+        public override void rollbackSnapshot(snapshot shotToRestore)
+        {
+            uncachedNAS.rollbackSnapshot(shotToRestore);
+        }
+
+        public override void waitUntilISCSIConfigFlushed()
+        {
+            if (!dirtyISCSIThreads.ContainsKey(Thread.CurrentThread.ManagedThreadId) ||
+                dirtyISCSIThreads[Thread.CurrentThread.ManagedThreadId] == false)
+            {
+                Console.WriteLine("No flush needed");
+                return;
+            }
+
+            // If there are still some threads waiting, hang around and let them finish what they're doing before we flush, instead
+            // of flushing after each one.
+            while (true)
+            {
+                if (waitingISCSIOperations == 0)
+                {
+                    lock (this)
+                    {
+                        if (waitingISCSIOperations == 0)
+                        {
+                            uncachedNAS.waitUntilISCSIConfigFlushed();
+                            break;
+                        }
+                    }
+                }
+
+                //Console.WriteLine("Waiting for " + waitingISCSIOperations + " to finish before we flush");
+                Thread.Sleep(TimeSpan.FromMilliseconds(500));
+            }
+
+            if (!dirtyISCSIThreads.ContainsKey(Thread.CurrentThread.ManagedThreadId))
+                dirtyISCSIThreads.TryAdd(Thread.CurrentThread.ManagedThreadId, false);
+            dirtyISCSIThreads[Thread.CurrentThread.ManagedThreadId] = false;
+        }
+
+        public override List<snapshot> getSnapshots()
+        {
+            return snapshots.Values.ToList();
+        }
+
+        public override void deleteSnapshot(snapshot toDelete)
+        {
+            uncachedNAS.deleteSnapshot(toDelete);
+            snapshot foo;
+            snapshots.TryRemove(toDelete.id, out foo);
+        }
+
+        public override snapshot createSnapshot(string dataset, string snapshotName)
+        {
+            snapshot newVal = uncachedNAS.createSnapshot(dataset, snapshotName);
+            snapshots.TryAdd(newVal.id, newVal);
+            return newVal;
+        }
+
+        public override void cloneSnapshot(snapshot toClone, string fullCloneName)
+        {
+            uncachedNAS.cloneSnapshot(toClone, fullCloneName);
+        }
+
+        public override List<iscsiTarget> getISCSITargets()
+        {
+            return targets.Values.ToList();
+        }
+
+        public override iscsiTarget addISCSITarget(iscsiTarget toAdd)
+        {
+            iscsiTarget newVal = uncachedNAS.addISCSITarget(toAdd);
+            targets.TryAdd(newVal.id, newVal);
+            markThisThreadISCSIDirty();
+            return newVal;
+        }
+
+        public override void deleteISCSITarget(iscsiTarget tgt)
+        {
+            uncachedNAS.deleteISCSITarget(tgt);
+            iscsiTarget foo;
+            targets.TryRemove(tgt.id, out foo);
+            markThisThreadISCSIDirty();
+        }
+
+        public override List<volume> getVolumes()
+        {
+            return volumes.Values.ToList();
+        }
+
+        public override volume findVolumeByName(List<volume> volumesToSearch, string cloneName)
+        {
+            return uncachedNAS.findVolumeByName(volumesToSearch, cloneName);
+        }
+
+        public override volume findVolumeByMountpoint(List<volume> vols, string mountpoint)
+        {
+            return uncachedNAS.findVolumeByMountpoint(vols, mountpoint);
+        }
+
+        public override volume findParentVolume(List<volume> vols, volume volToFind)
+        {
+            return uncachedNAS.findParentVolume(vols, volToFind);
+        }
+
+        public override void deleteZVol(volume vol)
+        {
+            waitUntilISCSIConfigFlushed();
+            uncachedNAS.deleteZVol(vol);
+        }
+
+        public override List<targetGroup> getTargetGroups()
+        {
+            return targetGroups.Values.ToList();
+        }
+
+        public override targetGroup addTargetGroup(targetGroup tgtGrp, iscsiTarget newTarget)
+        {
+            targetGroup newVal = uncachedNAS.addTargetGroup(tgtGrp, newTarget);
+            targetGroups.TryAdd(newVal.id, newVal);
+            markThisThreadISCSIDirty();
+            return newVal;
+        }
+
+        public override List<iscsiPortal> getPortals()
+        {
+            return portals.Values.ToList();
+        }
+    }
+
     public class FreeNAS : NASAccess
     {
         private readonly string _serverIp;
@@ -80,9 +341,17 @@ namespace hypervisors
 
         /// <summary>
         /// If we do multiple non-API requests in parallel, we will run afoul of FreeNAS's CSRF protection, so lock this and just 
-        /// do one at a time. We could manage different sessions properly for some speedup here.
+        /// do one at a time. We could manage different sessions properly for some speedup here, but freenas has issues with lots
+        /// of parallelism anyway..
         /// </summary>
         private readonly Object nonAPIReqLock = new Object();
+
+        /// <summary>
+        /// This lock is used to serialise requests to the FreeNAS api. It is used because FreeNAS really doesn't deal well with
+        /// lots of simultanenous requests, so we end up retrying with a delay, which is much less effecient than waiting on a 
+        /// lock.
+        /// </summary>
+        private readonly Object ReqLock = new Object();
 
         public FreeNAS(hypSpec_iLo hyp)
         {
@@ -104,9 +373,33 @@ namespace hypervisors
             
         }
 
-        private resp doReq(string url, string method, HttpStatusCode expectedCode, string payload = null)
+        private T doReqForJSON<T>(string url, string method, HttpStatusCode expectedCode, string payload = null, cancellableDateTime deadline = null)
         {
-            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(4);
+            if (deadline == null)
+                deadline = new cancellableDateTime(TimeSpan.FromMinutes(4));
+
+            while (true)
+            {
+                resp r = doReq(url, method, expectedCode, payload, deadline);
+
+                if (r.text.Contains("The request has timed out"))
+                {
+                    deadline.throwIfTimedOutOrCancelled();
+
+                    Thread.Sleep(TimeSpan.FromSeconds(3));
+                }
+                else
+                {
+                    return JsonConvert.DeserializeObject<T>(r.text);
+                }
+            }
+        }
+
+        private resp doReq(string url, string method, HttpStatusCode expectedCode, string payload = null, cancellableDateTime deadline = null)
+        {
+            if (deadline == null)
+                deadline = new cancellableDateTime(TimeSpan.FromMinutes(4));
+
             while (true)
             {
                 try
@@ -115,7 +408,7 @@ namespace hypervisors
                 }
                 catch (nasAccessException)
                 {
-                    if (DateTime.Now > deadline)
+                    if (!deadline.stillOK)
                         throw;
 
                     Thread.Sleep(TimeSpan.FromSeconds(10));
@@ -125,50 +418,56 @@ namespace hypervisors
 
         private resp _doReq(string url, string method, HttpStatusCode expectedCode, string payload = null)
         {
-            HttpWebRequest req = (HttpWebRequest) WebRequest.Create(url);
-            req.Method = method;
-            CredentialCache cred = new CredentialCache();
-            cred.Add(new Uri(url), "Basic", new NetworkCredential(_username, _password));
-            req.Credentials = cred;
-            req.PreAuthenticate = true;
-
-            if (payload != null)
+            lock (ReqLock)
             {
-                req.ContentType = "application/json";
-                Byte[] dataBytes = Encoding.ASCII.GetBytes(payload);
-                req.ContentLength = dataBytes.Length;
-                using (Stream stream = req.GetRequestStream())
+                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
+                req.Method = method;
+                CredentialCache cred = new CredentialCache();
+                cred.Add(new Uri(url), "Basic", new NetworkCredential(_username, _password));
+                req.Credentials = cred;
+                req.PreAuthenticate = true;
+
+                if (payload != null)
                 {
-                    stream.Write(dataBytes, 0, dataBytes.Length);
+                    req.ContentType = "application/json";
+                    Byte[] dataBytes = Encoding.ASCII.GetBytes(payload);
+                    req.ContentLength = dataBytes.Length;
+                    using (Stream stream = req.GetRequestStream())
+                    {
+                        stream.Write(dataBytes, 0, dataBytes.Length);
+                    }
                 }
-            }
 
-            try
-            {
-                using (HttpWebResponse resp = (HttpWebResponse) req.GetResponse())
+                try
                 {
-                    using (Stream respStream = resp.GetResponseStream())
+                    using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                    {
+                        using (Stream respStream = resp.GetResponseStream())
+                        {
+                            using (StreamReader respStreamReader = new StreamReader(respStream))
+                            {
+                                string contentString = respStreamReader.ReadToEnd();
+
+                                if (resp.StatusCode != expectedCode)
+                                    throw nasAccessException.create(resp, url, contentString);
+
+                                return new resp() {text = contentString};
+                            }
+                        }
+                    }
+                }
+                catch (WebException e)
+                {
+                    if (e.Response == null)
+                        throw new nasAccessException(e.Message);
+
+                    using (Stream respStream = e.Response.GetResponseStream())
                     {
                         using (StreamReader respStreamReader = new StreamReader(respStream))
                         {
                             string contentString = respStreamReader.ReadToEnd();
-
-                            if (resp.StatusCode != expectedCode)
-                                throw nasAccessException.create(resp, url, contentString);
-
-                            return new resp() {text = contentString};
+                            throw nasAccessException.create(((HttpWebResponse) e.Response), url, contentString);
                         }
-                    }
-                }
-            }
-            catch (WebException e)
-            {
-                using (Stream respStream = e.Response.GetResponseStream())
-                {
-                    using (StreamReader respStreamReader = new StreamReader(respStream))
-                    {
-                        string contentString = respStreamReader.ReadToEnd();
-                        throw nasAccessException.create(((HttpWebResponse) e.Response), url, contentString);
                     }
                 }
             }
@@ -176,8 +475,7 @@ namespace hypervisors
 
         public override List<iscsiTarget> getISCSITargets()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/target/?limit=99999", "get", HttpStatusCode.OK).text;
-            return JsonConvert.DeserializeObject<List<iscsiTarget>>(HTTPResponse);
+            return doReqForJSON<List<iscsiTarget>>("http://" + _serverIp + "/api/v1.0/services/iscsi/target/?limit=99999", "get", HttpStatusCode.OK);
         }
 
         public override void deleteISCSITarget(iscsiTarget target)
@@ -186,16 +484,20 @@ namespace hypervisors
             doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
 
+        public override void waitUntilISCSIConfigFlushed()
+        {
+            string url = String.Format("http://{0}/api/v1.0/system/aliztest/", _serverIp);
+            doReq(url, "GET", HttpStatusCode.OK);
+        }
+
         public override List<iscsiTargetToExtentMapping> getTargetToExtents()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targettoextent/?limit=99999", "get", HttpStatusCode.OK).text;
-            return JsonConvert.DeserializeObject<List<iscsiTargetToExtentMapping>>(HTTPResponse);
+            return doReqForJSON<List<iscsiTargetToExtentMapping>>("http://" + _serverIp + "/api/v1.0/services/iscsi/targettoextent/?limit=99999", "get", HttpStatusCode.OK);
         }
 
         public override List<iscsiExtent> getExtents()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/extent/?limit=99999", "get", HttpStatusCode.OK).text;
-            return JsonConvert.DeserializeObject<List<iscsiExtent>>(HTTPResponse);
+            return doReqForJSON<List<iscsiExtent>>("http://" + _serverIp + "/api/v1.0/services/iscsi/extent/?limit=99999", "get", HttpStatusCode.OK);
         }
 
         public override void deleteISCSITargetToExtent(iscsiTargetToExtentMapping tgtToExtent)
@@ -229,8 +531,7 @@ namespace hypervisors
 
         public override List<volume> getVolumes()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/volume/?limit=99999", "get", HttpStatusCode.OK).text;
-            return JsonConvert.DeserializeObject<List<volume>>(HTTPResponse);
+            return doReqForJSON<List<volume>>("http://" + _serverIp + "/api/v1.0/storage/volume/?limit=99999", "get", HttpStatusCode.OK);
         }
 
         public override void cloneSnapshot(snapshot snapshot, string path)
@@ -285,8 +586,7 @@ namespace hypervisors
 
         public override List<snapshot> getSnapshots()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/?limit=99999", "get", HttpStatusCode.OK).text;
-            return JsonConvert.DeserializeObject<List<snapshot>>(HTTPResponse);
+            return doReqForJSON<List<snapshot>>("http://" + _serverIp + "/api/v1.0/storage/snapshot/?limit=99999", "get", HttpStatusCode.OK);
         }
 
         public override void rollbackSnapshot(snapshot shotToRestore) //, volume parentVolume, volume clone)
@@ -377,10 +677,7 @@ namespace hypervisors
             string payload = String.Format("{{\"iscsi_target_name\": \"{0}\", " +
                                            "\"iscsi_target_alias\": \"{1}\" " +
                                            "}}", toAdd.targetName, toAdd.targetAlias);
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/target/", "POST", HttpStatusCode.Created, payload).text;
-            iscsiTarget created = JsonConvert.DeserializeObject<iscsiTarget>(HTTPResponse);
-
-            return created;
+            return doReqForJSON<iscsiTarget>("http://" + _serverIp + "/api/v1.0/services/iscsi/target/", "POST", HttpStatusCode.Created, payload);
         }
 
         public override iscsiTargetToExtentMapping addISCSITargetToExtent(int targetID, iscsiExtent extent)
@@ -390,10 +687,7 @@ namespace hypervisors
                                            "\"iscsi_extent\": \"{1}\", " +
                                            "\"iscsi_lunid\": null " +
                                            "}}", targetID, extent.id);
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targettoextent/", "POST", HttpStatusCode.Created, payload).text;
-            iscsiTargetToExtentMapping created = JsonConvert.DeserializeObject<iscsiTargetToExtentMapping>(HTTPResponse);
-
-            return created;
+            return doReqForJSON<iscsiTargetToExtentMapping>("http://" + _serverIp + "/api/v1.0/services/iscsi/targettoextent/", "POST", HttpStatusCode.Created, payload);
         }
 
         public override targetGroup addTargetGroup(targetGroup toAdd, iscsiTarget target)
@@ -407,10 +701,7 @@ namespace hypervisors
                                            "}}", target.id,
                 toAdd.iscsi_target_authgroup, toAdd.iscsi_target_authtype, toAdd.iscsi_target_portalgroup,
                 toAdd.iscsi_target_initiatorgroup, toAdd.iscsi_target_initialdigest);
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/", "POST", HttpStatusCode.Created, payload).text;
-            targetGroup created = JsonConvert.DeserializeObject<targetGroup>(HTTPResponse);
-
-            return created;
+            return doReqForJSON<targetGroup>("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/", "POST", HttpStatusCode.Created, payload);
         }
 
         public override volume findParentVolume(List<volume> vols, volume volToFind)
@@ -442,22 +733,17 @@ namespace hypervisors
                                            "\"iscsi_target_extent_name\": \"{1}\", " +
                                            "\"iscsi_target_extent_disk\": \"{2}\" " +
                                            "}}", "Disk", extent.iscsi_target_extent_name, extent.iscsi_target_extent_disk);
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/extent/", "POST", HttpStatusCode.Created, payload).text;
-            iscsiExtent created = JsonConvert.DeserializeObject<iscsiExtent>(HTTPResponse);
-
-            return created;
+            return doReqForJSON<iscsiExtent>("http://" + _serverIp + "/api/v1.0/services/iscsi/extent/", "POST", HttpStatusCode.Created, payload);
         }
 
         public override List<iscsiPortal> getPortals()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/portal/?format=json", "get", HttpStatusCode.OK).text;
-            return JsonConvert.DeserializeObject<List<iscsiPortal>>(HTTPResponse);
+            return doReqForJSON<List<iscsiPortal>>("http://" + _serverIp + "/api/v1.0/services/iscsi/portal/?format=json", "get", HttpStatusCode.OK);
         }
 
         public override List<targetGroup> getTargetGroups()
         {
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/?limit=99999", "get", HttpStatusCode.OK).text;
-            return JsonConvert.DeserializeObject<List<targetGroup>>(HTTPResponse);
+            return doReqForJSON<List<targetGroup>>("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/?limit=99999", "get", HttpStatusCode.OK);
         }
 
         public override snapshot createSnapshot(string dataset, string name)
@@ -466,16 +752,14 @@ namespace hypervisors
                                            "\"name\": \"{1}\" " +
                                            "}}", dataset, name);
 
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/", "post", HttpStatusCode.Created, payload).text;
-            return JsonConvert.DeserializeObject<snapshot>(HTTPResponse);
+            return doReqForJSON<snapshot>("http://" + _serverIp + "/api/v1.0/storage/snapshot/", "post", HttpStatusCode.Created, payload);
         }
 
-        public override snapshot deleteSnapshot(snapshot toDelete)
+        public override void deleteSnapshot(snapshot toDelete)
         {
-            string name = toDelete.fullname;
-            name = Uri.EscapeDataString(name);
-            string HTTPResponse = doReq("http://" + _serverIp + "/api/v1.0/storage/snapshot/" + name, "DELETE", HttpStatusCode.NoContent).text;
-            return JsonConvert.DeserializeObject<snapshot>(HTTPResponse);
+            string name = Uri.EscapeDataString(toDelete.fullname);
+            string url = "http://" + _serverIp + "/api/v1.0/storage/snapshot/" + name;
+            doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
     }
 
