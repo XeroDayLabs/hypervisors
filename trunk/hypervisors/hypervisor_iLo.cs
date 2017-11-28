@@ -204,6 +204,11 @@ namespace hypervisors
             return _executor.startExecutableAsyncWithRetry(toExecute, args, workingDir);
         }
 
+        public override IAsyncExecutionResult startExecutableAsyncInteractively(string cmdExe, string args, string workingDir = null)
+        {
+            return _executor.startExecutableAsyncInteractively(cmdExe, args, workingDir);
+        }
+
         public override void mkdir(string newDir, cancellableDateTime deadline = null)
         {
             if (_executor == null)
@@ -238,6 +243,8 @@ namespace hypervisors
 
         protected override void Dispose(bool disposing)
         {
+            _executor.Dispose();
+
             // FIXME: oh no is it permissible to lock in the GC thread or can we deadlock?
             refCount<hypervisor_iLo_HTTP> ilo;
             lock (_ilos)

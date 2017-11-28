@@ -270,6 +270,11 @@ namespace hypervisors
             return executor.startExecutableAsyncWithRetry(toExecute, args, workingDir);
         }
 
+        public override IAsyncExecutionResult startExecutableAsyncInteractively(string cmdExe, string args, string workingDir = null)
+        {
+            return executor.startExecutableAsyncInteractively(cmdExe, args, workingDir);
+        }
+
         public override void mkdir(string newDir, cancellableDateTime deadline = null)
         {
             if (deadline == null)
@@ -317,6 +322,13 @@ namespace hypervisors
             }
         }
 
+        protected override void Dispose(bool disposing)
+        {
+            executor.Dispose();
+
+            base.Dispose(disposing);
+        }
+
         public override string ToString()
         {
             return string.Format("{0}:{1}", _spec.kernelDebugIPOrHostname, _spec.kernelDebugPort);
@@ -330,7 +342,7 @@ namespace hypervisors
         {
         }
     }
-
+    
     /// <summary>
     /// A snapshottable VM, powered by FreeNAS / iscsi / PXE.
     /// </summary>

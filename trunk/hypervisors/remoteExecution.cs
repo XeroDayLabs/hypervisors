@@ -7,14 +7,16 @@ using Action = System.Action;
 
 namespace hypervisors
 {
-    public abstract class remoteExecution
+    public abstract class remoteExecution : IDisposable
     {
         public abstract void mkdir(string newDir, cancellableDateTime deadline = null);
         public abstract void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline = null);
         public abstract string tryGetFileFromGuest(string srcpath, out Exception errorOrNull);
         public abstract IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null);
+        public abstract IAsyncExecutionResult startExecutableAsyncInteractively(string cmdExe, string args, string workingDir);
         public abstract void testConnectivity();
         public abstract void deleteFile(string toDelete, cancellableDateTime deadline);
+        public abstract void Dispose();
 
         public string getFileFromGuest(string srcpath)
         {

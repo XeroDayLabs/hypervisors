@@ -60,7 +60,13 @@ namespace hypervisors
             using (Process process = Process.Start(ps))
             {
                 TimeSpan timeout = deadline.getRemainingTimespan();
-                if (!process.WaitForExit((int) timeout.TotalMilliseconds))
+                int timeoutMS;
+                if (timeout.TotalMilliseconds > int.MaxValue)
+                    timeoutMS = -1;
+                else
+                    timeoutMS = (int) timeout.TotalMilliseconds;
+
+                if (!process.WaitForExit(timeoutMS))
                     throw new TimeoutException();
 
                 return new executionResult(process);
@@ -85,6 +91,11 @@ namespace hypervisors
         {
             // startExecutableAsync in this class can never fail anyway.
             return startExecutableAsync(toExecute, args, workingDir);
+        }
+
+        public override IAsyncExecutionResult startExecutableAsyncInteractively(string cmdExe, string args, string workingDir = null)
+        {
+            return startExecutableAsync(cmdExe, args, workingDir);
         }
 
         public override void mkdir(string newDir, cancellableDateTime deadline)

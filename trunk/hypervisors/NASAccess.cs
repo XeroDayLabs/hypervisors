@@ -76,34 +76,22 @@ namespace hypervisors
 
     public class FreeNASWithCaching :  NASAccess
     {
-        private ConcurrentDictionary<int, iscsiTargetToExtentMapping> TTEExtents = new ConcurrentDictionary<int, iscsiTargetToExtentMapping>();
-        private ConcurrentDictionary<int, iscsiExtent> extents = new ConcurrentDictionary<int, iscsiExtent>();
-        private ConcurrentDictionary<int, iscsiTarget> targets = new ConcurrentDictionary<int, iscsiTarget>();
-        private ConcurrentDictionary<int, volume> volumes = new ConcurrentDictionary<int, volume>();
-        private ConcurrentDictionary<string, snapshot> snapshots = new ConcurrentDictionary<string, snapshot>();
-        private ConcurrentDictionary<string, targetGroup> targetGroups = new ConcurrentDictionary<string, targetGroup>();
-        private ConcurrentDictionary<string, iscsiPortal> portals = new ConcurrentDictionary<string, iscsiPortal>();
+        private readonly ConcurrentDictionary<int, iscsiTargetToExtentMapping> TTEExtents = new ConcurrentDictionary<int, iscsiTargetToExtentMapping>();
+        private readonly ConcurrentDictionary<int, iscsiExtent> extents = new ConcurrentDictionary<int, iscsiExtent>();
+        private readonly ConcurrentDictionary<int, iscsiTarget> targets = new ConcurrentDictionary<int, iscsiTarget>();
+        private readonly ConcurrentDictionary<int, volume> volumes = new ConcurrentDictionary<int, volume>();
+        private readonly ConcurrentDictionary<string, snapshot> snapshots = new ConcurrentDictionary<string, snapshot>();
+        private readonly ConcurrentDictionary<string, targetGroup> targetGroups = new ConcurrentDictionary<string, targetGroup>();
+        private readonly ConcurrentDictionary<string, iscsiPortal> portals = new ConcurrentDictionary<string, iscsiPortal>();
 
         private readonly FreeNAS uncachedNAS;
 
         private int waitingISCSIOperations = 0;
-        private ConcurrentDictionary<int, bool> dirtyISCSIThreads = new ConcurrentDictionary<int, bool>();
-
-        public FreeNASWithCaching(hypSpec_iLo hyp)
-        {
-            uncachedNAS = new FreeNAS(hyp);
-            init();
-        }
+        private readonly ConcurrentDictionary<int, threadDirtInfo> dirtyISCSIThreads = new ConcurrentDictionary<int, threadDirtInfo>();
 
         public FreeNASWithCaching(string serverIP, string username, string password)
         {
             uncachedNAS = new FreeNAS(serverIP, username, password);
-            init();
-        }
-
-        public FreeNASWithCaching(NASParams parms)
-        {
-            uncachedNAS = new FreeNAS(parms);
             init();
         }
 
@@ -138,11 +126,18 @@ namespace hypervisors
             return newMapping;
         }
 
+        private static int iscsiOperationCounter = 1;
+        private static readonly Object iscsiOperationCounterLock = new Object();
         private void markThisThreadISCSIDirty()
         {
             if (!dirtyISCSIThreads.ContainsKey(Thread.CurrentThread.ManagedThreadId))
-                dirtyISCSIThreads.TryAdd(Thread.CurrentThread.ManagedThreadId, false);
-            dirtyISCSIThreads[Thread.CurrentThread.ManagedThreadId] = true;
+                dirtyISCSIThreads.TryAdd(Thread.CurrentThread.ManagedThreadId, new threadDirtInfo());
+
+            lock (iscsiOperationCounterLock)
+            {
+                dirtyISCSIThreads[Thread.CurrentThread.ManagedThreadId].lastUnclean = iscsiOperationCounter;
+                iscsiOperationCounter++;
+            }
         }
 
         public override void deleteISCSITargetToExtent(iscsiTargetToExtentMapping tgtToExtent)
@@ -210,15 +205,18 @@ namespace hypervisors
 
         public override void waitUntilISCSIConfigFlushed()
         {
+            // Its okay to return before other threads have completely flushed their config - the only one we're really interested
+            // in is the config for the calling thread.
             if (!dirtyISCSIThreads.ContainsKey(Thread.CurrentThread.ManagedThreadId) ||
-                dirtyISCSIThreads[Thread.CurrentThread.ManagedThreadId] == false)
+                dirtyISCSIThreads[Thread.CurrentThread.ManagedThreadId].hasPending == false)
             {
-                Console.WriteLine("No flush needed");
+                Console.WriteLine("No flush needed for this thread");
                 return;
             }
 
-            // If there are still some threads waiting, hang around and let them finish what they're doing before we flush, instead
-            // of flushing after each one.
+            ConcurrentDictionary<int, threadDirtInfo> dirtyThreadsAtStart = new ConcurrentDictionary<int, threadDirtInfo>();
+
+            // coalesce flushing by waiting until there are zero pending for all threads.
             while (true)
             {
                 if (waitingISCSIOperations == 0)
@@ -227,6 +225,8 @@ namespace hypervisors
                     {
                         if (waitingISCSIOperations == 0)
                         {
+                            foreach (KeyValuePair<int, threadDirtInfo> kvp in dirtyISCSIThreads)
+                                dirtyThreadsAtStart.TryAdd(kvp.Key, kvp.Value);
                             uncachedNAS.waitUntilISCSIConfigFlushed();
                             break;
                         }
@@ -237,9 +237,12 @@ namespace hypervisors
                 Thread.Sleep(TimeSpan.FromMilliseconds(500));
             }
 
-            if (!dirtyISCSIThreads.ContainsKey(Thread.CurrentThread.ManagedThreadId))
-                dirtyISCSIThreads.TryAdd(Thread.CurrentThread.ManagedThreadId, false);
-            dirtyISCSIThreads[Thread.CurrentThread.ManagedThreadId] = false;
+            // We flushed up to this index of iscsi operation (or more, maybe).
+            foreach (KeyValuePair<int, threadDirtInfo> kvp in dirtyISCSIThreads)
+            {
+                if (dirtyThreadsAtStart.ContainsKey(kvp.Key))
+                    kvp.Value.lastFlushed = dirtyThreadsAtStart[kvp.Key].lastUnclean;
+            }
         }
 
         public override List<snapshot> getSnapshots()
@@ -329,6 +332,17 @@ namespace hypervisors
         public override List<iscsiPortal> getPortals()
         {
             return portals.Values.ToList();
+        }
+    }
+
+    public class threadDirtInfo
+    {
+        public int lastUnclean;
+        public int lastFlushed;
+
+        public bool hasPending
+        {
+            get { return lastUnclean != lastFlushed; }
         }
     }
 
@@ -539,6 +553,9 @@ namespace hypervisors
             string url = String.Format("http://{0}/api/v1.0/storage/snapshot/{1}/clone/", _serverIp, snapshot.fullname);
             string payload = String.Format("{{\"name\": \"{0}\" }}", path);
             doReq(url, "POST", HttpStatusCode.Accepted, payload);
+            // This API function returns a HTTP status of Accepted (202), which should indicate that the operation has been started
+            // and will continue async. However, after studying the FreeNAS code ("FreeNAS-9.10.1 (d989edd)"), there appears to be
+            // a shell out to 'zfs clone', which is sync. AFAICT, the call can never return before the clone is complete.
         }
 
         public override volume findVolumeByMountpoint(List<volume> vols, string mountpoint)

@@ -152,6 +152,11 @@ namespace hypervisors
             return new asyncExecutionResultViaFile(this, fileSet);
         }
 
+        public override IAsyncExecutionResult startExecutableAsyncInteractively(string cmdExe, string args, string workingDir)
+        {
+            return startExecutableAsync(cmdExe, args, workingDir);
+        }
+
         public override void testConnectivity()
         {
             executionResult res = startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo teststring");
@@ -162,6 +167,11 @@ namespace hypervisors
         public override void deleteFile(string toDelete, cancellableDateTime deadline)
         {
             throw new NotImplementedException();
+        }
+
+        public override void Dispose()
+        {
+
         }
     }
 }

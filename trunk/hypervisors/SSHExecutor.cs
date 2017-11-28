@@ -71,6 +71,11 @@ namespace hypervisors
             throw new NotImplementedException();
         }
 
+        public override void Dispose()
+        {
+            
+        }
+
         public override executionResult startExecutable(string toExecute, string args, string workingDir = null, cancellableDateTime deadline = null)
         {
             if (workingDir != null)
@@ -107,6 +112,11 @@ namespace hypervisors
         }
 
         public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override IAsyncExecutionResult startExecutableAsyncInteractively(string cmdExe, string args, string workingDir)
         {
             throw new NotImplementedException();
         }

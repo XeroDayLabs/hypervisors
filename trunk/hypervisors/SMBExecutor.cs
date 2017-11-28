@@ -1,32 +1,31 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace hypervisors
 {
     /// <summary>
     /// This class exposes a bare windows box. It uses SMB to copy files, and can spawn processes (by shelling out to psexec).
     /// It assumes the root of C:\ is shared as "C" on the guest.
-    /// Also, ensure that you set the required registry key on the guest before using this, otherwise you will see "the handle is invalid"
-    /// errors - see the wiki.
+    /// It may be neccessary to set the required registry key on the guest before using this, or it may not be, since we moved to
+    /// WMI for remote execution instead of shelling out to psexec.
     /// </summary>
     public class SMBExecutor : remoteExecution
     {
-        string _guestIP;
-        string _username;
-        string _password;
-        private NetworkCredential _cred;
+        readonly string _guestIP;
+        readonly string _username;
+        readonly string _password;
+        private readonly NetworkCredential _cred;
 
-        /// <summary>
-        /// This will pass '-i' to psexec, causing the target process to be executed on the currently-logged-in user's desktop.
-        /// This won't work if there is no user logged in.
-        /// </summary>
-        public bool runInteractively = true;
+        readonly ConcurrentBag<Task> tasksToDispose = new ConcurrentBag<Task>();
 
         public SMBExecutor(string guestIP, string _guestUsername, string _guestPassword)
         {
@@ -43,87 +42,70 @@ namespace hypervisors
                 throw new hypervisorExecutionException_retryable();
         }
 
-        public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
+        public override IAsyncExecutionResult startExecutableAsyncInteractively(string toExecute, string args, string workingDir = null)
         {
+            if (workingDir != null)
+                throw new NotSupportedException();
+
             string tempDir = string.Format("C:\\users\\{0}\\", _username);
 
+            execFileSet fileSet = base.prepareForExecution(toExecute, args, tempDir);
+            
+            // Use a scheduled task to run interactively with the remote users desktop.
+            string scheduledTaskName = Guid.NewGuid().ToString();
+            using (hypervisor_localhost local = new hypervisor_localhost())
+            {
+                executionResult taskCreation = local.startExecutable("schtasks.exe", string.Format(
+                    "/f /create /s {0} /tr \"'{1}'\" /it /sc onstart /tn {4} /u {2} /p {3} ",
+                    _guestIP, fileSet.launcherPath, _username, _password, scheduledTaskName));
+                if (taskCreation.resultCode != 0)
+                    throw new Exception("Couldn't create scheduled task, stdout " + taskCreation.stdout + " / stderr " + taskCreation.stderr);
+                executionResult taskStart = local.startExecutable("schtasks.exe", string.Format(
+                    "/run /s {0} /tn {3} /u {1} /p {2}",
+                    _guestIP, _username, _password, scheduledTaskName));
+                if (taskStart.resultCode != 0)
+                    throw new Exception("Couldn't start scheduled task, stdout " + taskStart.stdout + " / stderr " + taskStart.stderr);
+            }
+            return new asyncExecutionResultViaFile(this, fileSet);
+        }
+
+        public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
+        {
+            var connOpts = new ConnectionOptions();
+            connOpts.Username = _username;
+            connOpts.Password = _password;
+
+            string tempDir = string.Format("C:\\users\\{0}\\", _username);
             if (workingDir == null)
                 workingDir = tempDir;
 
+            // We try to connect to the client before we do anything else. This is what usually times out.
+            // There's no way (?) to set a timeout for ManagementScope.connect, so we run it in a task and bail if it takes too
+            // long.
+            string wmiPath = String.Format("\\\\{0}\\root\\cimv2", _guestIP);
+            var scope = new ManagementScope(wmiPath, connOpts);
+            ManualResetEvent connectedOK = new ManualResetEvent(false);
+            Task foo = Task.Run(() =>
+            {
+                scope.Connect();
+                connectedOK.Set();
+            }) ;
+            tasksToDispose.Add(foo);
+            if (!connectedOK.WaitOne(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException();
+
             // We do this by creating two batch files on the target.
             // The first contains the command we're executing, and the second simply calls the first with redirection to the files
-            // we want our output in. This simplifies escaping on the commandline via psexec.
+            // we want our output in.
             execFileSet fileSet = base.prepareForExecution(toExecute, args, tempDir);
 
-            // Now execute the launcher.bat via psexec.
-            string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -u {1} -p {2} -w {4} -n 5 -h \"{3}\"",
-                _guestIP, _username, _password, fileSet.launcherPath, workingDir, "-d", runInteractively ? " -i " : "");
-            ProcessStartInfo info = new ProcessStartInfo(findPsexecPath(), psExecArgs);
-            info.RedirectStandardError = true;
-            info.RedirectStandardOutput = true;
-            info.UseShellExecute = false;
-            info.WindowStyle = ProcessWindowStyle.Hidden;
+            var proc = new ManagementClass(scope, new ManagementPath("Win32_Process"), new ObjectGetOptions());
+            object[] methodCreateArgs = new object[] {fileSet.launcherPath, workingDir, null, 0};
+            UInt32 s = (UInt32) proc.InvokeMethod("create", methodCreateArgs);
+            if (s != 0)
+                throw new Exception("WMI error code " + s);
 
-            //Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
-            using (Process proc = Process.Start(info))
-            {
-                // We allow psexec a relatively long window to start the process async on the host.
-                // This is because psexec can frequently take a long time to operate. Note that we 
-                // supply "-n" to psexec so we don't wait for a long time for non-responsive machines
-                // (eg, in the poweron path).
-                if (!proc.WaitForExit((int) TimeSpan.FromSeconds(65).TotalMilliseconds))
-                {
-                    try
-                    {
-                        proc.Kill();
-                    }
-                    catch (Exception)
-                    {
-                    }
-
-                    return null;
-                }
-
-                // Now we can scrape stdout and make sure the process was started correctly. 
-                string psexecStdErr = proc.StandardError.ReadToEnd();
-                if (psexecStdErr.Contains("The handle is invalid."))
-                    return null;
-                if (!psexecStdErr.Contains(" started on " + _guestIP + " with process ID "))
-                    return null;
-                if (psexecStdErr.Contains("The specified service has been marked for deletion."))
-                {
-                    // Oh no!! This means that psexec, on the target machine, is left in a non-functional state. Attempts to use
-                    // it to start any processes will fail D:
-                    // I can't fid a way to recover from this, so we have to force a machine reboot here DDD: Hopefully it only
-                    // happens during deployment of the fuzzer (?), in which case we can recover just by deploying again. 
-                    // I think we need a better way to execute remotely, PSExec may not be the best :(
-                    throw new targetNeedsRebootingException(psexecStdErr, proc.ExitCode);
-                }
-
-                // Note that we can't check the return status here, since psexec returns a PID :/
-                return new asyncExecutionResultViaFile(this, fileSet);
-            }
-        }
-
-        private string findPsexecPath()
-        {
-            // Search the system PATH, and also these two hardcoded locations.
-            List<string> candidates = new List<string>();
-            candidates.AddRange(Environment.GetEnvironmentVariable("PATH").Split(';')); // Check it out, an old-school injection here! Can you spot it?
-            // Chocolatey installs to this path by default
-            candidates.Add(@"C:\ProgramData\chocolatey\bin");
-            foreach (string candidatePath in candidates)
-            {
-                string psExecPath32 = Path.Combine(candidatePath, "psexec.exe");
-                string psExecPath64 = Path.Combine(candidatePath, "psexec64.exe");
-
-                if (File.Exists(psExecPath32))
-                    return psExecPath32;
-                if (File.Exists(psExecPath64))
-                    return psExecPath64;
-            }
-
-            throw new Exception("PSExec not found. Put it in your system PATH or install via chocolatey ('choco install sysinternals').");
+            return new asyncExecutionResultViaFile(this, fileSet);
         }
 
         public override void mkdir(string newDir, cancellableDateTime deadline)
@@ -148,6 +130,15 @@ namespace hypervisors
                 else if (File.Exists(destUNC))
                     File.Delete(destUNC);
             }, deadline );
+        }
+
+        public override void Dispose()
+        {
+            foreach (Task task in tasksToDispose)
+            {
+                try { task.Wait(); } catch (Exception) { }
+                task.Dispose();
+            }
         }
 
         private void doNetworkCall(Action toRun, cancellableDateTime deadline)

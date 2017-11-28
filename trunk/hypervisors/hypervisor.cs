@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Web.Services.Protocols;
@@ -24,12 +25,12 @@ namespace hypervisors
         public abstract executionResult startExecutable(string toExecute, string args, string workingdir = null, cancellableDateTime deadline = null);
         public abstract IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null);
         public abstract IAsyncExecutionResult startExecutableAsyncWithRetry(string toExecute, string args, string workingDir = null);
+        public abstract IAsyncExecutionResult startExecutableAsyncInteractively(string cmdExe, string args, string workingDir = null);
         public abstract void mkdir(string newDir, cancellableDateTime deadline = null);
 
         protected virtual void Dispose(bool disposing)
         {
         }
-
 
         public void Dispose()
         {
@@ -93,7 +94,9 @@ namespace hypervisors
                         !(res.error is hypervisorExecutionException)   &&
                         !(res.error is hypervisorExecutionException_retryable)   &&
                         !(res.error is SshOperationTimeoutException)   &&
-                        !(res.error is SshConnectionException)                      )
+                        !(res.error is SshConnectionException)         &&
+                        !(res.error is UnauthorizedAccessException) &&
+                        !(res.error is COMException)                                )
                     {
                         // An exception of a type we don't anticipate, so throw
                         throw res.error;
@@ -140,7 +143,9 @@ namespace hypervisors
                         e is hypervisorExecutionException ||
                         e is hypervisorExecutionException_retryable ||
                         e is SshOperationTimeoutException ||
-                        e is SshConnectionException)
+                        e is SshConnectionException ||
+                        e is UnauthorizedAccessException || 
+                        e is COMException)
                     {
                         if (!deadline.stillOK)
                         {
