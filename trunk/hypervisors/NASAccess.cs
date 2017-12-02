@@ -39,7 +39,7 @@ namespace hypervisors
 
         public abstract List<iscsiTarget> getISCSITargets();
         public abstract void deleteISCSITarget(iscsiTarget tgt);
-        public abstract void waitUntilISCSIConfigFlushed();
+        public abstract void waitUntilISCSIConfigFlushed(bool force = false);
 
         public abstract List<snapshot> getSnapshots();
         public abstract void deleteSnapshot(snapshot toDelete);
@@ -95,6 +95,8 @@ namespace hypervisors
             init();
         }
 
+        public int flushCount = 0;
+
         private void init()
         {
             uncachedNAS.getTargetToExtents().ForEach(x => TTEExtents.TryAdd(x.id, x));
@@ -104,6 +106,8 @@ namespace hypervisors
             uncachedNAS.getSnapshots().ForEach(x => snapshots.TryAdd(x.id, x));
             uncachedNAS.getTargetGroups().ForEach(x => targetGroups.TryAdd(x.id, x));
             uncachedNAS.getPortals().ForEach(x => portals.TryAdd(x.id, x));
+
+            waitUntilISCSIConfigFlushed(true);
         }
         
         public override iscsiTargetToExtentMapping addISCSITargetToExtent(int iscsiTarget, iscsiExtent newExtent)
@@ -186,6 +190,12 @@ namespace hypervisors
             uncachedNAS.deleteISCSIExtent(extent);
             iscsiExtent foo;
             extents.TryRemove(extent.id, out foo);
+            var toDel = TTEExtents.Where(x => x.Value.iscsi_extent == extent.id);
+            foreach (var tte in toDel)
+            {
+                iscsiTargetToExtentMapping removedTTE;
+                TTEExtents.TryRemove(tte.Key, out removedTTE);
+            }
             lock (this)
             {
                 waitingISCSIOperations--;
@@ -203,15 +213,18 @@ namespace hypervisors
             uncachedNAS.rollbackSnapshot(shotToRestore);
         }
 
-        public override void waitUntilISCSIConfigFlushed()
+        public override void waitUntilISCSIConfigFlushed(bool force = false)
         {
             // Its okay to return before other threads have completely flushed their config - the only one we're really interested
             // in is the config for the calling thread.
-            if (!dirtyISCSIThreads.ContainsKey(Thread.CurrentThread.ManagedThreadId) ||
-                dirtyISCSIThreads[Thread.CurrentThread.ManagedThreadId].hasPending == false)
+            if (force == false)
             {
-                Console.WriteLine("No flush needed for this thread");
-                return;
+                if (!dirtyISCSIThreads.ContainsKey(Thread.CurrentThread.ManagedThreadId) ||
+                     dirtyISCSIThreads[Thread.CurrentThread.ManagedThreadId].hasPending == false)
+                {
+                    Console.WriteLine("No flush needed for this thread");
+                    return;
+                }
             }
 
             ConcurrentDictionary<int, threadDirtInfo> dirtyThreadsAtStart = new ConcurrentDictionary<int, threadDirtInfo>();
@@ -227,7 +240,8 @@ namespace hypervisors
                         {
                             foreach (KeyValuePair<int, threadDirtInfo> kvp in dirtyISCSIThreads)
                                 dirtyThreadsAtStart.TryAdd(kvp.Key, kvp.Value);
-                            uncachedNAS.waitUntilISCSIConfigFlushed();
+                            uncachedNAS.waitUntilISCSIConfigFlushed(force);
+                            flushCount++;
                             break;
                         }
                     }
@@ -286,7 +300,12 @@ namespace hypervisors
         {
             uncachedNAS.deleteISCSITarget(tgt);
             iscsiTarget foo;
-            targets.TryRemove(tgt.id, out foo);
+            var toDel = TTEExtents.Where(x => x.Value.iscsi_target == tgt.id);
+            foreach (var tte in toDel)
+            {
+                iscsiTargetToExtentMapping removedTTE;
+                TTEExtents.TryRemove(tte.Key, out removedTTE);
+            }
             markThisThreadISCSIDirty();
         }
 
@@ -498,7 +517,7 @@ namespace hypervisors
             doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
 
-        public override void waitUntilISCSIConfigFlushed()
+        public override void waitUntilISCSIConfigFlushed(bool force = false)
         {
             string url = String.Format("http://{0}/api/v1.0/system/aliztest/", _serverIp);
             doReq(url, "GET", HttpStatusCode.OK);
@@ -745,11 +764,23 @@ namespace hypervisors
             // ... "start it with zvol instead of dev/zvol"
             if (extent.iscsi_target_extent_disk.StartsWith("/dev/zvol", StringComparison.CurrentCultureIgnoreCase))
                 extent.iscsi_target_extent_disk = extent.iscsi_target_extent_disk.Substring(5);
+
+            string diskNameOrFilePath;
+            if (extent.iscsi_target_extent_type == "File")
+                diskNameOrFilePath = String.Format("\"iscsi_target_extent_path\": \"{0}\" ", extent.iscsi_target_extent_path);
+            else if (extent.iscsi_target_extent_type == "Disk")
+                diskNameOrFilePath = String.Format("\"iscsi_target_extent_disk\": \"{0}\" ", extent.iscsi_target_extent_disk);
+            else
+                throw new ArgumentException("iscsi_target_extent_type");
+            
             string payload = String.Format("{{" +
                                            "\"iscsi_target_extent_type\": \"{0}\", " +
                                            "\"iscsi_target_extent_name\": \"{1}\", " +
-                                           "\"iscsi_target_extent_disk\": \"{2}\" " +
-                                           "}}", "Disk", extent.iscsi_target_extent_name, extent.iscsi_target_extent_disk);
+                                           "{2}" +
+                                           "}}", 
+                                           extent.iscsi_target_extent_type,
+                                           extent.iscsi_target_extent_name, 
+                                           diskNameOrFilePath);
             return doReqForJSON<iscsiExtent>("http://" + _serverIp + "/api/v1.0/services/iscsi/extent/", "POST", HttpStatusCode.Created, payload);
         }
 

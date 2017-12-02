@@ -103,7 +103,7 @@ namespace hypervisors
             object[] methodCreateArgs = new object[] {fileSet.launcherPath, workingDir, null, 0};
             UInt32 s = (UInt32) proc.InvokeMethod("create", methodCreateArgs);
             if (s != 0)
-                throw new Exception("WMI error code " + s);
+                throw new hypervisorExecutionException_retryable();
 
             return new asyncExecutionResultViaFile(this, fileSet);
         }
