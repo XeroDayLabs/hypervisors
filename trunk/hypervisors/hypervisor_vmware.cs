@@ -169,6 +169,9 @@ namespace hypervisors
                 case clientExecutionMethod.smb:
                     executor = new SMBExecutor(spec.kernelDebugIPOrHostname, spec.kernelVMUsername, spec.kernelVMPassword);
                     break;
+                case clientExecutionMethod.SSHToBASH:
+                    executor = new SSHExecutor(spec.kernelDebugIPOrHostname, spec.kernelVMUsername, spec.kernelVMPassword);
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException("newExecMethod", newExecMethod, null);
             }

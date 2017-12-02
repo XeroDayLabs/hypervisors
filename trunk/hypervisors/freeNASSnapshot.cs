@@ -24,12 +24,13 @@ namespace hypervisors
             // Here we power the server down, tell the iSCSI server to use the right image, and power it back up again.
             hyp.powerOff();
 
-            // Now we can get started. We must remove the 'target to extent' mapping, then the target. Then we can safely roll back
-            // the ZFS snapshot, and then re-add the target and mapping. We use a finally block so that it is less likely we will
+            // Now we can get started. We must remove the 'target to extent' mapping, then the extent. Then we can safely roll back
+            // the ZFS snapshot, and then re-add the extent and mapping. We use a finally block so that it is less likely we will
             // leave the NAS object in an inconsistent state.
-            // TODO: can we just tell freeNAS to delete this stuff instead?
-            nas.deleteISCSITargetToExtent(shotObjects.tgtToExtent);
+            // Note that removing the target will also remove any 'target to extent' mapping, so we don't need to do that explicitly.
+            // FreeNAS will take care of it for us.
             nas.deleteISCSIExtent(shotObjects.extent);
+            nas.waitUntilISCSIConfigFlushed();
             try
             {
                 // Roll back the snapshot. Use a retry, since FreeNAS is complaining the dataset is in use occasionally.
@@ -53,12 +54,12 @@ namespace hypervisors
             {
                 // Re-add the extent and target-to-extent mapping.
                 iscsiExtent newExtent = nas.addISCSIExtent(shotObjects.extent);
-                nas.addISCSITargetToExtent(shotObjects.tgtToExtent.iscsi_target, newExtent);
+                nas.addISCSITargetToExtent(newExtent.id, newExtent);
                 nas.waitUntilISCSIConfigFlushed();
             }
         }
 
-        public static snapshotObjects getSnapshotObjectsFromNAS(NASAccess nas, string snapshotFullName)
+        private static snapshotObjects getSnapshotObjectsFromNAS(NASAccess nas, string snapshotFullName)
         {
             List<snapshot> snapshots = nas.getSnapshots();
             snapshot shotToRestore = snapshots.SingleOrDefault(
