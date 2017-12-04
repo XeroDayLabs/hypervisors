@@ -196,6 +196,43 @@ namespace hypervisors
         {
             copyToGuestFromBuffer(dstPath, Encoding.ASCII.GetBytes(srcContents));
         }
+
+        public void patchFreeNASInstallation()
+        {
+            // This will install the XDL modifications to the FreeNAS web UI. 
+            // It should only be done once, after installation of FreeNAS.
+
+            // Copy and install our patched FreeNAS code.
+            copyToGuest("/root/freenas-xdl.patch", "C:\\code\\hypervisors\\freenas-support.patch", new cancellableDateTime(TimeSpan.FromSeconds(10)));
+            executionResult res = startExecutable("/bin/sh", "-c \"exec /usr/bin/patch --batch --quiet --directory=/usr/local/www < /root/freenas-xdl.patch\"");
+            if (res.resultCode != 0)
+                throw new executionFailedException(res);
+
+            // Then restart nginx and django, which should both restart OK.
+            executionResult nginxRestartRes = startExecutable("service", "nginx restart");
+            if (nginxRestartRes.resultCode != 0)
+                throw new executionFailedException(nginxRestartRes);
+            executionResult djangoRestartRes = startExecutable("service", "django restart");
+            if (djangoRestartRes.resultCode != 0)
+                throw new executionFailedException(djangoRestartRes);
+        }
+    }
+
+    public class executionFailedException : Exception
+    {
+        private string _msg;
+
+        public executionFailedException(executionResult res)
+        {
+            _msg = String.Format(
+                "Execution on remote systemn resulted in error: Return code was {0}, stdout was '{1}', and stderr was '{2}",
+                res.resultCode, res.stdout, res.stderr);
+        }
+
+        public override string ToString()
+        {
+            return _msg;
+        }
     }
 
     public class cancellableDateTime

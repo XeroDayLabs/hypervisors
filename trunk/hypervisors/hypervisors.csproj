@@ -115,6 +115,11 @@
     <Compile Include="hypervisor_iLo_HTTP.cs" />
     <Compile Include="hypervisor_localhost.cs" />
     <Compile Include="nasAccessException.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="refCount.cs" />
     <Compile Include="remoteExecution.cs" />
     <Compile Include="SMBExecutor.cs" />
@@ -130,7 +135,14 @@
     <Compile Include="vmwareRemoteExecutor.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="freenas-support.patch" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

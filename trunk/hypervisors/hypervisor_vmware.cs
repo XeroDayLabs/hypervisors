@@ -166,7 +166,10 @@ namespace hypervisors
                 case clientExecutionMethod.vmwaretools:
                     executor = new vmwareRemoteExecutor(spec, VClient);
                     break;
-                case clientExecutionMethod.smb:
+                case clientExecutionMethod.smbWithPSExec:
+                    executor = new SMBExecutorWithPSExec(spec.kernelDebugIPOrHostname, spec.kernelVMUsername, spec.kernelVMPassword);
+                    break;
+                case clientExecutionMethod.smbWithWMI:
                     executor = new SMBExecutor(spec.kernelDebugIPOrHostname, spec.kernelVMUsername, spec.kernelVMPassword);
                     break;
                 case clientExecutionMethod.SSHToBASH:
@@ -419,7 +422,11 @@ namespace hypervisors
     public enum clientExecutionMethod
     {
         vmwaretools,
-        smb,
+        // 'smb' is a depricated alias for 'smbWithPSExec'.
+        smb = 1, 
+        smbWithPSExec = 1,
+
+        smbWithWMI,
         SSHToBASH
     }
 }

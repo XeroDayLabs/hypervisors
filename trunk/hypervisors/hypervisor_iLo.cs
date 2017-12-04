@@ -32,7 +32,7 @@ namespace hypervisors
 
         private hypSpec_iLo _spec;
 
-        public hypervisor_iLo(hypSpec_iLo spec, clientExecutionMethod newExecMethod = clientExecutionMethod.smb)
+        public hypervisor_iLo(hypSpec_iLo spec, clientExecutionMethod newExecMethod = clientExecutionMethod.smbWithPSExec)
         {
             _spec = spec;
             lock (_ilos)
@@ -46,7 +46,9 @@ namespace hypervisors
                     _ilos[spec.iLoHostname].addRef();
                 }
             }
-            if (newExecMethod == clientExecutionMethod.smb)
+            if (newExecMethod == clientExecutionMethod.smbWithPSExec)
+                _executor = new SMBExecutorWithPSExec(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
+            else if (newExecMethod == clientExecutionMethod.smbWithWMI)
                 _executor = new SMBExecutor(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
             else if (newExecMethod == clientExecutionMethod.vmwaretools)
                 throw new NotSupportedException();

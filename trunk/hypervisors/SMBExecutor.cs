@@ -13,6 +13,111 @@ using System.Threading.Tasks;
 namespace hypervisors
 {
     /// <summary>
+    /// This is a legacy psexec.exe-powered executor, intended as a temporary solution for systems that cannot yet work properly
+    /// with WMI-based execution.
+    /// </summary>
+    public class SMBExecutorWithPSExec : SMBExecutor
+    {
+        public SMBExecutorWithPSExec(string guestIP, string _guestUsername, string _guestPassword)
+            : base(guestIP, _guestUsername, _guestPassword)
+        {
+        }
+
+        public IAsyncExecutionResult _startExecutableAsync(string toExecute, string args, string workingDir = null)
+        {
+            return _startExecutableAsync(toExecute, args, workingDir, false);
+        }
+
+        public IAsyncExecutionResult startExecutableAsyncInteractively(string toExecute, string args, string workingDir = null)
+        {
+            return _startExecutableAsync(toExecute, args, workingDir, true);
+        }
+
+        public IAsyncExecutionResult _startExecutableAsync(string toExecute, string args, string workingDir, bool runInteractively)
+        {
+            string tempDir = string.Format("C:\\users\\{0}\\", _username);
+
+            if (workingDir == null)
+                workingDir = tempDir;
+
+            // We do this by creating two batch files on the target.
+            // The first contains the command we're executing, and the second simply calls the first with redirection to the files
+            // we want our output in. This simplifies escaping on the commandline via psexec.
+            execFileSet fileSet = base.prepareForExecution(toExecute, args, tempDir);
+
+            // Now execute the launcher.bat via psexec.
+            string psExecArgs = string.Format("\\\\{0} {5} {6} -accepteula -u {1} -p {2} -w {4} -n 5 -h \"{3}\"",
+                _guestIP, _username, _password, fileSet.launcherPath, workingDir, "-d", runInteractively ? " -i " : "");
+            ProcessStartInfo info = new ProcessStartInfo(findPsexecPath(), psExecArgs);
+            info.RedirectStandardError = true;
+            info.RedirectStandardOutput = true;
+            info.UseShellExecute = false;
+            info.WindowStyle = ProcessWindowStyle.Hidden;
+
+            //Debug.WriteLine(string.Format("starting on {2}: {0} {1}", toExecute, cmdArgs, _guestIP));
+            using (Process proc = Process.Start(info))
+            {
+                // We allow psexec a relatively long window to start the process async on the host.
+                // This is because psexec can frequently take a long time to operate. Note that we 
+                // supply "-n" to psexec so we don't wait for a long time for non-responsive machines
+                // (eg, in the poweron path).
+                if (!proc.WaitForExit((int)TimeSpan.FromSeconds(65).TotalMilliseconds))
+                {
+                    try
+                    {
+                        proc.Kill();
+                    }
+                    catch (Exception)
+                    {
+                    }
+
+                    return null;
+                }
+
+                // Now we can scrape stdout and make sure the process was started correctly. 
+                string psexecStdErr = proc.StandardError.ReadToEnd();
+                if (psexecStdErr.Contains("The handle is invalid."))
+                    return null;
+                if (!psexecStdErr.Contains(" started on " + _guestIP + " with process ID "))
+                    return null;
+                if (psexecStdErr.Contains("The specified service has been marked for deletion."))
+                {
+                    // Oh no!! This means that psexec, on the target machine, is left in a non-functional state. Attempts to use
+                    // it to start any processes will fail D:
+                    // I can't fid a way to recover from this, so we have to force a machine reboot here DDD: Hopefully it only
+                    // happens during deployment of the fuzzer (?), in which case we can recover just by deploying again. 
+                    // I think we need a better way to execute remotely, PSExec may not be the best :(
+                    throw new targetNeedsRebootingException(psexecStdErr, proc.ExitCode);
+                }
+
+                // Note that we can't check the return status here, since psexec returns a PID :/
+                return new asyncExecutionResultViaFile(this, fileSet);
+            }
+        }
+
+        private string findPsexecPath()
+        {
+            // Search the system PATH, and also these two hardcoded locations.
+            List<string> candidates = new List<string>();
+            candidates.AddRange(Environment.GetEnvironmentVariable("PATH").Split(';')); // Check it out, an old-school injection here! Can you spot it?
+            // Chocolatey installs to this path by default
+            candidates.Add(@"C:\ProgramData\chocolatey\bin");
+            foreach (string candidatePath in candidates)
+            {
+                string psExecPath32 = Path.Combine(candidatePath, "psexec.exe");
+                string psExecPath64 = Path.Combine(candidatePath, "psexec64.exe");
+
+                if (File.Exists(psExecPath32))
+                    return psExecPath32;
+                if (File.Exists(psExecPath64))
+                    return psExecPath64;
+            }
+
+            throw new Exception("PSExec not found. Put it in your system PATH or install via chocolatey ('choco install sysinternals').");
+        }
+    }
+
+    /// <summary>
     /// This class exposes a bare windows box. It uses SMB to copy files, and can spawn processes (by shelling out to psexec).
     /// It assumes the root of C:\ is shared as "C" on the guest.
     /// It may be neccessary to set the required registry key on the guest before using this, or it may not be, since we moved to
@@ -20,9 +125,9 @@ namespace hypervisors
     /// </summary>
     public class SMBExecutor : remoteExecution
     {
-        readonly string _guestIP;
-        readonly string _username;
-        readonly string _password;
+        protected readonly string _guestIP;
+        protected readonly string _username;
+        protected readonly string _password;
         private readonly NetworkCredential _cred;
 
         readonly ConcurrentBag<Task> tasksToDispose = new ConcurrentBag<Task>();
@@ -89,7 +194,7 @@ namespace hypervisors
             {
                 scope.Connect();
                 connectedOK.Set();
-            }) ;
+            });
             tasksToDispose.Add(foo);
             if (!connectedOK.WaitOne(TimeSpan.FromSeconds(5)))
                 throw new TimeoutException();
@@ -129,7 +234,7 @@ namespace hypervisors
                     Directory.Delete(destUNC, true);
                 else if (File.Exists(destUNC))
                     File.Delete(destUNC);
-            }, deadline );
+            }, deadline);
         }
 
         public override void Dispose()
@@ -156,7 +261,7 @@ namespace hypervisors
             T toRet = tryDoNetworkCall(() =>
             {
                 T toRetInner = toRun.Invoke();
-                return new triedNetworkCallRes<T>() { res = toRetInner };
+                return new triedNetworkCallRes<T>() {res = toRetInner};
             }, deadline, out e);
             if (e != null)
                 throw e;
@@ -230,7 +335,7 @@ namespace hypervisors
         public override void copyToGuest(string dstPath, string srcPath, cancellableDateTime deadline = null)
         {
             if (deadline == null)
-                deadline  = new cancellableDateTime(TimeSpan.FromMinutes(3));
+                deadline = new cancellableDateTime(TimeSpan.FromMinutes(3));
 
             if (!dstPath.ToLower().StartsWith("c:"))
                 throw new Exception("Only C:\\ is shared");
@@ -301,13 +406,11 @@ namespace hypervisors
     [Serializable]
     public class hypervisorExecutionException : Exception
     {
-        public hypervisorExecutionException()
-            : base()
+        public hypervisorExecutionException() : base()
         {
         }
 
-        public hypervisorExecutionException(string a)
-            : base(a)
+        public hypervisorExecutionException(string a) : base(a)
         {
         }
     }
