@@ -1,0 +1,211 @@
+diff -U 5 -r freenasUI-old/api/resources.py freenasUI/api/resources.py
+--- freenasUI-old/api/resources.py	2017-12-04 10:36:17.000000000 +0800
++++ freenasUI/api/resources.py	2017-12-04 16:52:45.696438400 +0800
+@@ -2848,10 +2848,22 @@
+     def obj_get(self, bundle, **kwargs):
+         if 'pk' in kwargs and not kwargs['pk'].isdigit():
+             kwargs['srv_service'] = kwargs.pop('pk')
+         return super(ServicesResourceMixin, self).obj_get(bundle, **kwargs)
+ 
++class AlizTestResource(DojoResource):
++
++    class Meta:
++        allowed_methods = ['get']
++        resource_name = 'system/aliztest'
++
++    def get_list(self, request, **kwargs):
++        started = notifier().reload("iscsitarget")
++        data = {
++            'reloaded': started,
++        }
++        return self.create_response(request, data)
+ 
+ class RebootResource(DojoResource):
+ 
+     class Meta:
+         allowed_methods = ['post']
+diff -U 5 -r freenasUI-old/services/forms.py freenasUI/services/forms.py
+--- freenasUI-old/services/forms.py	2017-12-04 10:36:20.000000000 +0800
++++ freenasUI/services/forms.py	2017-12-04 16:56:02.711368800 +0800
+@@ -949,17 +949,17 @@
+         obj.iscsi_target_auth_peersecret = self.cleaned_data.get(
+             'iscsi_target_auth_peersecret'
+         )
+         if commit:
+             obj.save()
+-        started = notifier().reload("iscsitarget")
+-        if started is False and models.services.objects.get(
+-            srv_service='iscsitarget'
+-        ).srv_enable:
+-            raise ServiceFailed(
+-                "iscsitarget", _("The iSCSI service failed to reload.")
+-            )
++#        started = notifier().reload("iscsitarget")
++#        if started is False and models.services.objects.get(
++#            srv_service='iscsitarget'
++#        ).srv_enable:
++#            raise ServiceFailed(
++#                "iscsitarget", _("The iSCSI service failed to reload.")
++#            )
+         return obj
+ 
+ 
+ class iSCSITargetToExtentForm(ModelForm):
+     class Meta:
+@@ -1016,13 +1016,13 @@
+                 )
+         return self.cleaned_data
+ 
+     def save(self):
+         super(iSCSITargetToExtentForm, self).save()
+-        started = notifier().reload("iscsitarget")
+-        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
+-            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
++#        started = notifier().reload("iscsitarget")
++#        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
++#            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
+ 
+ 
+ class iSCSITargetGlobalConfigurationForm(ModelForm):
+ 
+     class Meta:
+@@ -1089,14 +1089,14 @@
+ 
+     def save(self):
+         obj = super(iSCSITargetGlobalConfigurationForm, self).save()
+         if self.instance._original_iscsi_alua != self.instance.iscsi_alua:
+             notifier().start('ix-loader')
+-        started = notifier().reload("iscsitarget")
+-        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
+-            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
+-        return obj
++#        started = notifier().reload("iscsitarget")
++#        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
++#            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
++#        return obj
+ 
+ 
+ class iSCSITargetExtentForm(ModelForm):
+ 
+     iscsi_target_extent_type = forms.ChoiceField(
+@@ -1397,13 +1397,13 @@
+                 size = self.cleaned_data["iscsi_target_extent_filesize"]
+                 if size.lower().endswith("b"):
+                     size = size[:-1]
+                 os.system("truncate -s %s %s" % (size, path))
+ 
+-        started = notifier().reload("iscsitarget")
+-        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
+-            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
++#        started = notifier().reload("iscsitarget")
++#        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
++#            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
+         return oExtent
+ 
+ 
+ class iSCSITargetPortalForm(ModelForm):
+     iscsi_target_portal_discoveryauthgroup = forms.ChoiceField(
+@@ -1444,13 +1444,13 @@
+         return tag
+ 
+     def done(self, *args, **kwargs):
+         super(iSCSITargetPortalForm, self).done(*args, **kwargs)
+         # This must be done here and not on save() because it saves foreign keys
+-        started = notifier().reload("iscsitarget")
+-        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
+-            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
++#        started = notifier().reload("iscsitarget")
++#        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
++#            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
+ 
+ 
+ class iSCSITargetPortalIPForm(ModelForm):
+ 
+     class Meta:
+@@ -1534,17 +1534,17 @@
+                 if not qs.exists():
+                     break
+                 i += 1
+             o.iscsi_target_initiator_tag = i
+         o.save()
+-        started = notifier().reload("iscsitarget")
+-        if started is False and models.services.objects.get(
+-            srv_service='iscsitarget'
+-        ).srv_enable:
+-            raise ServiceFailed(
+-                "iscsitarget", _("The iSCSI service failed to reload.")
+-            )
++#        started = notifier().reload("iscsitarget")
++#        if started is False and models.services.objects.get(
++#            srv_service='iscsitarget'
++#        ).srv_enable:
++#            raise ServiceFailed(
++#                "iscsitarget", _("The iSCSI service failed to reload.")
++#            )
+ 
+ 
+ class iSCSITargetGroupsInlineFormSet(FreeBaseInlineFormSet):
+ 
+     def clean(self):
+@@ -1606,13 +1606,13 @@
+             raise forms.ValidationError(_("target is a reserved word, please choose a different name for this alias."))
+         return alias
+ 
+     def done(self, *args, **kwargs):
+         super(iSCSITargetForm, self).done(*args, **kwargs)
+-        started = notifier().reload("iscsitarget")
+-        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
+-            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
++#        started = notifier().reload("iscsitarget")
++#        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
++#            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
+ 
+ 
+ class iSCSITargetGroupsForm(ModelForm):
+ 
+     iscsi_target_authgroup = forms.ChoiceField(label=_("Authentication Group number"))
+diff -U 5 -r freenasUI-old/services/views.py freenasUI/services/views.py
+--- freenasUI-old/services/views.py	2017-12-04 10:36:20.000000000 +0800
++++ freenasUI/services/views.py	2017-12-04 16:56:22.743960100 +0800
+@@ -315,12 +315,12 @@
+                 loader = True
+                 qs.delete()
+ 
+         i += 1
+ 
+-    if i > 0:
+-        notifier().reload("iscsitarget")
++#    if i > 0:
++#        notifier().reload("iscsitarget")
+ 
+     for mibname, val in list(sysctl_set.items()):
+         role = sysctl.filter('dev.isp.%s.role' % mibname)
+         if role:
+             role = role[0]
+diff -U 5 -r freenasUI-old/urls.py freenasUI/urls.py
+--- freenasUI-old/urls.py	2017-12-04 10:36:23.000000000 +0800
++++ freenasUI/urls.py	2017-12-04 16:57:08.664756000 +0800
+@@ -40,10 +40,11 @@
+     ConfigFactoryRestoreResource,
+     DatasetResource,
+     DebugResource,
+     FCPortsResource,
+     PermissionResource,
++    AlizTestResource,
+     RebootResource,
+     ShutdownResource,
+     SnapshotResource,
+     VersionResource,
+     VolumeImportResource,
+@@ -60,10 +61,11 @@
+ v1_api.register(DatasetResource())
+ v1_api.register(DebugResource())
+ v1_api.register(ConfigFactoryRestoreResource())
+ v1_api.register(FCPortsResource())
+ v1_api.register(PermissionResource())
++v1_api.register(AlizTestResource())
+ v1_api.register(RebootResource())
+ v1_api.register(ShutdownResource())
+ v1_api.register(SnapshotResource())
+ v1_api.register(VersionResource())
+ v1_api.register(VolumeImportResource())
