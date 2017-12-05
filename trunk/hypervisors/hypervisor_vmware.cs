@@ -208,8 +208,7 @@ namespace hypervisors
             // No, really, wait for it to be ready
             doWithRetryOnSomeExceptions(() =>
             {
-                startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
-                return "";
+                executor.testConnectivity();
             }, deadline, TimeSpan.FromSeconds(5));
         }
 
