@@ -818,6 +818,9 @@ namespace hypervisors
             if (extent.iscsi_target_extent_disk.StartsWith("/dev/zvol", StringComparison.CurrentCultureIgnoreCase))
                 extent.iscsi_target_extent_disk = extent.iscsi_target_extent_disk.Substring(5);
 
+            if (extent.iscsi_target_extent_type == "ZVOL")
+                extent.iscsi_target_extent_type = "Disk";  // You're a Disk now, 'arry
+
             string diskNameOrFilePath;
             if (extent.iscsi_target_extent_type == "File")
                 diskNameOrFilePath = String.Format("\"iscsi_target_extent_path\": \"{0}\" ", extent.iscsi_target_extent_path);
