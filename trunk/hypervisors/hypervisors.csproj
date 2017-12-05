@@ -135,6 +135,8 @@
     <Compile Include="vmwareRemoteExecutor.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="freenas-support-freenas11.patch" />
+    <None Include="freenas-support-freenas9.patch" />
     <None Include="freenas-support.patch" />
     <None Include="packages.config" />
   </ItemGroup>

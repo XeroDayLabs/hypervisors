@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -202,8 +203,12 @@ namespace hypervisors
             // This will install the XDL modifications to the FreeNAS web UI. 
             // It should only be done once, after installation of FreeNAS.
 
-            // Copy and install our patched FreeNAS code.
-            copyToGuest("/root/freenas-xdl.patch", "C:\\code\\hypervisors\\freenas-support.patch", new cancellableDateTime(TimeSpan.FromSeconds(10)));
+            // TODO: autodetect freenas version?
+//            Byte[] patchFile = Properties.Resources.freenas_support_freenas11;
+            Byte[] patchFile = Properties.Resources.freenas_support_freenas9;
+            // Sometimes Git will change newlines, so be sure we give unix-style newlines when executing
+            patchFile = patchFile.Where(x => x != '\r').ToArray();
+            copyToGuestFromBuffer("/root/freenas-xdl.patch", patchFile);
             executionResult res = startExecutable("/bin/sh", "-c \"exec /usr/bin/patch --batch --quiet --directory=/usr/local/www < /root/freenas-xdl.patch\"");
             if (res.resultCode != 0)
                 throw new executionFailedException(res);

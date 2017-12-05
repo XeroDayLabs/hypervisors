@@ -63,9 +63,19 @@ namespace hypervisors.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] freenas_support {
+        internal static byte[] freenas_support_freenas11 {
             get {
-                object obj = ResourceManager.GetObject("freenas_support", resourceCulture);
+                object obj = ResourceManager.GetObject("freenas_support_freenas11", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] freenas_support_freenas9 {
+            get {
+                object obj = ResourceManager.GetObject("freenas_support_freenas9", resourceCulture);
                 return ((byte[])(obj));
             }
         }
