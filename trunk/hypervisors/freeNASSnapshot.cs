@@ -52,30 +52,28 @@ namespace hypervisors
             }
             finally
             {
-                // Re-add the extent and target-to-extent mapping.
+                // Re-add the extent and target-to-extent mapping. Use the same target ID as the old target-to-extent used, and
+                // the new extent's ID.
                 iscsiExtent newExtent = nas.addISCSIExtent(shotObjects.extent);
-                nas.addISCSITargetToExtent(newExtent.id, newExtent);
+                nas.addISCSITargetToExtent(shotObjects.tgtToExtent.iscsi_target, newExtent);
                 nas.waitUntilISCSIConfigFlushed();
             }
         }
 
         private static snapshotObjects getSnapshotObjectsFromNAS(NASAccess nas, string snapshotFullName)
         {
-            List<snapshot> snapshots = nas.getSnapshots();
-            snapshot shotToRestore = snapshots.SingleOrDefault(
+            snapshot shotToRestore = nas.getSnapshots().SingleOrDefault(
                 x => x.fullname.ToLower().Contains("/" + snapshotFullName.ToLower() + "@") || x.id == snapshotFullName);
             if (shotToRestore == null)
                 throw new Exception("Cannot find snapshot " + snapshotFullName);
 
             // Now find the extent. We'll need to delete it before we can rollback the snapshot.
-            List<iscsiExtent> extents = nas.getExtents();
-            iscsiExtent extent = extents.SingleOrDefault(x => snapshotFullName.Equals(x.iscsi_target_extent_name, StringComparison.CurrentCultureIgnoreCase));
+            iscsiExtent extent = nas.getExtents().SingleOrDefault(x => snapshotFullName.Equals(x.iscsi_target_extent_name, StringComparison.CurrentCultureIgnoreCase));
             if (extent == null)
                 throw new Exception("Cannot find extent " + snapshotFullName);
 
             // Find the 'target to extent' mapping, since this will need to be deleted before we can delete the extent.
-            List<iscsiTargetToExtentMapping> tgtToExtents = nas.getTargetToExtents();
-            iscsiTargetToExtentMapping tgtToExtent = tgtToExtents.SingleOrDefault(x => x.iscsi_extent == extent.id);
+            iscsiTargetToExtentMapping tgtToExtent = nas.getTargetToExtents().SingleOrDefault(x => x.iscsi_extent == extent.id);
             if (tgtToExtent == null)
                 throw new Exception("Cannot find target-to-extent mapping with ID " + extent.id + " for snapshot " + shotToRestore.name);
 
