@@ -7,12 +7,12 @@ namespace hypervisors
 {
     public static class freeNASSnapshot
     {
-        public static void restoreSnapshot<T>(hypervisorWithSpec<T> hyp, NASParams nasParams)
+        public static void restoreSnapshot<T>(hypervisorWithSpec<T> hyp, NASParams nasParams, cancellableDateTime deadline)
         {
-            restoreSnapshot(hyp, nasParams.IP, nasParams.username, nasParams.password);
+            restoreSnapshot(hyp, nasParams.IP, nasParams.username, nasParams.password, deadline);
         }
 
-        public static void restoreSnapshot<T>(hypervisorWithSpec<T> hyp, string freeNASIP, string freeNASUsername, string freeNASPassword)
+        public static void restoreSnapshot<T>(hypervisorWithSpec<T> hyp, string freeNASIP, string freeNASUsername, string freeNASPassword, cancellableDateTime deadline)
         {
             hypSpec_withWindbgKernel _spec = hyp.getBaseConnectionSpec();
 
@@ -46,7 +46,7 @@ namespace hypervisors
                     {
                         if (retries-- == 0)
                             throw;
-                        Thread.Sleep(TimeSpan.FromSeconds(6)); // 6 sec * 100 retries = ten minutes
+                        deadline.doCancellableSleep(TimeSpan.FromSeconds(6)); // 6 sec * 100 retries = ten minutes
                     }
                 }
             }

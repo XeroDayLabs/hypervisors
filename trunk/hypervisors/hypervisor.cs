@@ -109,7 +109,7 @@ namespace hypervisors
                 }
 
                 // Otherwise, just retry.
-                Thread.Sleep(retryDelay);
+                deadline.doCancellableSleep(retryDelay);
             }
         }
 
@@ -154,7 +154,7 @@ namespace hypervisors
                             throw;
                         }
                         // An exception but we're still before the deadline, so wait and retry.
-                        Thread.Sleep(retryDelay);
+                        deadline.doCancellableSleep(retryDelay);
                     }
                     else
                     {
@@ -267,10 +267,10 @@ namespace hypervisors
             }
         }
 
-        public void throwIfTimedOutOrCancelled()
+        public void throwIfTimedOutOrCancelled(string cancellationMessage = null)
         {
             if (!stillOK)
-                throw new TimeoutException();
+                throw new TimeoutException(cancellationMessage);
         }
 
         public void markCancelled()
@@ -281,6 +281,20 @@ namespace hypervisors
         public TimeSpan getRemainingTimespan()
         {
             return deadline - DateTime.Now;
+        }
+
+        public void doCancellableSleep(TimeSpan timeToSleep, string cancellationMessage = null)
+        {
+            DateTime wakeupTime = DateTime.Now + timeToSleep;
+            while (true)
+            {
+                throwIfTimedOutOrCancelled(cancellationMessage);
+
+                if (DateTime.Now > wakeupTime)
+                    return;
+
+                Thread.Sleep(TimeSpan.FromMilliseconds(500));
+            }
         }
     }
 

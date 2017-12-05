@@ -46,7 +46,8 @@ namespace hypervisors
                     if (pinger.Ping(TimeSpan.FromMilliseconds(500)))
                     {
                         Debug.Print(".. Box " + getBaseConnectionSpec().kernelDebugIPOrHostname + " pingable, giving it a few more seconds..");
-                        Thread.Sleep(TimeSpan.FromSeconds(10));
+                        deadline.doCancellableSleep(TimeSpan.FromSeconds(10));
+                        Debug.Print(".. Box " + getBaseConnectionSpec().kernelDebugIPOrHostname + " assumed to be up now.");
                         break;
                     }
                 }
@@ -56,7 +57,7 @@ namespace hypervisors
                         break;
                 }
 
-                Thread.Sleep(5000);
+                deadline.doCancellableSleep(TimeSpan.FromSeconds(5));
             }
 
             Debug.Print(".. wait complete for box " + getBaseConnectionSpec().kernelDebugIPOrHostname);

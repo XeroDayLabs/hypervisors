@@ -24,8 +24,9 @@ namespace hypervisors
 
         public VimClientImpl getConnection()
         {
+            cancellableDateTime deadline = new cancellableDateTime(TimeSpan.FromMinutes(5));
             if (VClient == null)
-                refreshVClient();
+                refreshVClient(deadline);
 
             // See if we can get a list of VMs. If this basic operation causes a timeout, then our session has probably expired
             // and we should reconnect.
@@ -48,7 +49,7 @@ namespace hypervisors
             if (!succeeded)
             {
                 Debug.WriteLine("Connection to ESXi server failed, reconnecting");
-                refreshVClient();
+                refreshVClient(deadline);
             }
 
             // if _this_ one fails, that's fatal.
@@ -59,7 +60,7 @@ namespace hypervisors
             return VClient;
         }
 
-        private void refreshVClient()
+        private void refreshVClient(cancellableDateTime deadline)
         {
             // If we can't ping the box, assume we can't connect to the API either. We do this since I can't work out how to
             // set connection timeouts for the VMWare api (is there a way?).
@@ -81,14 +82,14 @@ namespace hypervisors
                         throw new WebException("Can't ping ESXi before trying to access web API");
 
                     pingRetries--;
-                    Thread.Sleep(TimeSpan.FromSeconds(4));
+                    deadline.doCancellableSleep(TimeSpan.FromSeconds(4));
                 }
             }
 
             // We can ping fine, so connect using HTTP.
-            DateTime deadline = DateTime.Now + TimeSpan.FromMinutes(5);
             while (true)
             {
+                DateTime connectionDeadline = DateTime.Now + TimeSpan.FromMinutes(5);
                 try
                 {
                     VClient = new VimClientImpl();
@@ -98,9 +99,8 @@ namespace hypervisors
                 }
                 catch (Exception)
                 {
-                    if (DateTime.Now > deadline)
+                    if (DateTime.Now > connectionDeadline)
                         throw;
-                    continue;
                 }
             }
         }
@@ -201,14 +201,14 @@ namespace hypervisors
                     if (VM.Guest.ToolsRunningStatus == VirtualMachineToolsRunningStatus.guestToolsRunning.ToString())
                         break;
 
-                    Thread.Sleep(TimeSpan.FromSeconds(3));
+                    deadline.doCancellableSleep(TimeSpan.FromSeconds(3));
                 }
             }
 
             // No, really, wait for it to be ready
             doWithRetryOnSomeExceptions(() =>
             {
-                startExecutable("C:\\windows\\system32\\cmd.exe", "/c echo hi");
+                executor.testConnectivity();
                 return "";
             }, deadline, TimeSpan.FromSeconds(5));
         }
@@ -278,7 +278,10 @@ namespace hypervisors
 
         public override IAsyncExecutionResult startExecutableAsyncInteractively(string cmdExe, string args, string workingDir = null)
         {
-            return executor.startExecutableAsyncInteractively(cmdExe, args, workingDir);
+            IAsyncExecutionResult toRet = null;
+            while (toRet == null)
+                toRet = executor.startExecutableAsyncInteractively(cmdExe, args, workingDir);
+            return toRet;
         }
 
         public override void mkdir(string newDir, cancellableDateTime deadline = null)
@@ -323,7 +326,7 @@ namespace hypervisors
                         break;
                     deadline.throwIfTimedOutOrCancelled();
 
-                    Thread.Sleep(TimeSpan.FromSeconds(1));
+                    deadline.doCancellableSleep(TimeSpan.FromSeconds(1));
                 }
             }
         }
@@ -379,7 +382,7 @@ namespace hypervisors
 
         public override void restoreSnapshot()
         {
-            freeNASSnapshot.restoreSnapshot(this, _freeNASIP, _freeNASUsername, _freeNASPassword);
+            freeNASSnapshot.restoreSnapshot(this, _freeNASIP, _freeNASUsername, _freeNASPassword, new cancellableDateTime(TimeSpan.FromMinutes(60)));
         }
     }
 

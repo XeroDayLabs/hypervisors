@@ -459,7 +459,7 @@ namespace hypervisors
                 {
                     deadline.throwIfTimedOutOrCancelled();
 
-                    Thread.Sleep(TimeSpan.FromSeconds(3));
+                    deadline.doCancellableSleep(TimeSpan.FromSeconds(3));
                 }
                 else
                 {
@@ -484,7 +484,7 @@ namespace hypervisors
                     if (!deadline.stillOK)
                         throw;
 
-                    Thread.Sleep(TimeSpan.FromSeconds(10));
+                    deadline.doCancellableSleep(TimeSpan.FromSeconds(10));
                 }
             }
         }
@@ -553,7 +553,7 @@ namespace hypervisors
 
         public override void deleteISCSITarget(iscsiTarget target)
         {
-            string url = String.Format("http://{0}/api/v1.0/services/iscsi/target/{1}", _serverIp, target.id);
+            string url = String.Format("http://{0}/api/v1.0/services/iscsi/target/{1}/", _serverIp, target.id);
             doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
 
@@ -575,7 +575,7 @@ namespace hypervisors
 
         public override void deleteISCSITargetToExtent(iscsiTargetToExtentMapping tgtToExtent)
         {
-            string url = String.Format("http://{0}/api/v1.0/services/iscsi/targettoextent/{1}", _serverIp, tgtToExtent.id);
+            string url = String.Format("http://{0}/api/v1.0/services/iscsi/targettoextent/{1}/", _serverIp, tgtToExtent.id);
             doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
 
@@ -598,7 +598,7 @@ namespace hypervisors
 
         public override void deleteISCSIExtent(iscsiExtent extent)
         {
-            string url = String.Format("http://{0}/api/v1.0/services/iscsi/extent/{1}", _serverIp, extent.id);
+            string url = String.Format("http://{0}/api/v1.0/services/iscsi/extent/{1}/", _serverIp, extent.id);
             doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
 

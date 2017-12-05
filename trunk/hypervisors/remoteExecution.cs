@@ -53,17 +53,17 @@ namespace hypervisors
 //     Disabling the timeout for now because I am waaay behind schedule already
 //                if (DateTime.Now > deadline)
 //                    throw new hypervisorExecutionException();
-                    Thread.Sleep(3);
+                    deadline.doCancellableSleep(TimeSpan.FromSeconds(3));
                 }
 
                 while (true)
                 {
-                    if (!deadline.stillOK)
-                        throw new TimeoutException();
+                    deadline.doCancellableSleep(TimeSpan.FromSeconds(3));
+
                     executionResult res = resultInProgress.getResultIfComplete();
+
                     if (res != null)
                         return res;
-                    Thread.Sleep(3);
                 }
             }
             finally
@@ -103,9 +103,7 @@ namespace hypervisors
                         throw res.error;
                 }
 
-                Thread.Sleep(TimeSpan.FromSeconds(3));
-                if (!deadline.stillOK)
-                    throw new TimeoutException();
+                deadline.doCancellableSleep(TimeSpan.FromSeconds(3));
             }
         }
 
@@ -133,7 +131,7 @@ namespace hypervisors
                 {
                 }
 
-                Thread.Sleep(TimeSpan.FromSeconds(3));
+                deadline.doCancellableSleep(TimeSpan.FromSeconds(3));
 
                 if (!deadline.stillOK)
                     throw new TimeoutException();

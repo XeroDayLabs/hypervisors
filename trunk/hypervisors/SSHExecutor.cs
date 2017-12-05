@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 
@@ -9,23 +10,44 @@ namespace hypervisors
     public class SSHExecutor : remoteExecution
     {
         private readonly string _hostIp;
-        private readonly string _hostUsername;
+        private string _hostUsername;
         private readonly string _hostPassword;
-        private readonly ConnectionInfo inf;
+        private ConnectionInfo inf;
 
         public SSHExecutor(string hostIP, string hostUsername, string hostPassword)
         {
             _hostIp = hostIP;
             _hostUsername = hostUsername;
-            _hostPassword = hostPassword;
 
-            // VMWare ESXi is configured to deny password auth but permit keyboard-interactive auth out of the box, so we support
-            // this and fallback to password auth if needed.
-            KeyboardInteractiveAuthenticationMethod interactiveAuth = new KeyboardInteractiveAuthenticationMethod(_hostUsername);
-            interactiveAuth.AuthenticationPrompt += authCB;
-            // Keyboard auth is the only supported scheme for the iLos.
-            PasswordAuthenticationMethod passwordAuth = new PasswordAuthenticationMethod(_hostUsername, _hostPassword);
-            inf = new ConnectionInfo(_hostIp, _hostUsername, interactiveAuth, passwordAuth);
+            // We assume that if 'password' begins with this magic, then we should do keypair auth.
+            if (hostPassword.Trim().ToUpper().StartsWith("-----BEGIN RSA PRIVATE KEY-----") ||
+                hostPassword.Trim().ToUpper().StartsWith("-----BEGIN DSA PRIVATE KEY-----"))
+            {
+                // This is a huge bodge, but FreeNAS 11 won't let me do password auth as root, even when I enable it in the UI and faff.
+                // Because of this, need a quick way to support keypair auth.
+                using (MemoryStream mem = new MemoryStream(Encoding.ASCII.GetBytes(hostPassword)))
+                {
+                    inf = new ConnectionInfo(_hostIp, _hostUsername, new AuthenticationMethod[]
+                {
+                    new PrivateKeyAuthenticationMethod(_hostUsername, new PrivateKeyFile[]
+                    {
+                        new PrivateKeyFile(mem),
+                    }),
+                });
+                }
+            }
+            else
+            {
+                // Otherwise, we do password auth.
+                // VMWare ESXi is configured to deny password auth but permit keyboard-interactive auth out of the box, so we support
+                // this and fallback to password auth if needed.
+                KeyboardInteractiveAuthenticationMethod interactiveAuth = new KeyboardInteractiveAuthenticationMethod(_hostUsername);
+                interactiveAuth.AuthenticationPrompt += authCB;
+                // Keyboard auth is the only supported scheme for the iLos.
+                _hostPassword = hostPassword;
+                PasswordAuthenticationMethod passwordAuth = new PasswordAuthenticationMethod(_hostUsername, hostPassword);
+                inf = new ConnectionInfo(_hostIp, _hostUsername, interactiveAuth, passwordAuth);
+            }
         }
 
         public override void mkdir(string newDir, cancellableDateTime deadline)

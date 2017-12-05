@@ -197,7 +197,7 @@ namespace hypervisors
             });
             tasksToDispose.Add(foo);
             if (!connectedOK.WaitOne(TimeSpan.FromSeconds(5)))
-                throw new TimeoutException();
+                return null;
 
             // We do this by creating two batch files on the target.
             // The first contains the command we're executing, and the second simply calls the first with redirection to the files
@@ -208,7 +208,7 @@ namespace hypervisors
             object[] methodCreateArgs = new object[] {fileSet.launcherPath, workingDir, null, 0};
             UInt32 s = (UInt32) proc.InvokeMethod("create", methodCreateArgs);
             if (s != 0)
-                throw new hypervisorExecutionException_retryable();
+                return null;
 
             return new asyncExecutionResultViaFile(this, fileSet);
         }
@@ -305,7 +305,7 @@ namespace hypervisors
                                 return default(T);
                             }
 
-                            Thread.Sleep(TimeSpan.FromSeconds(1));
+                            deadline.doCancellableSleep(TimeSpan.FromSeconds(1));
                             continue;
                         }
 
@@ -317,7 +317,7 @@ namespace hypervisors
                     triedNetworkCallRes<T> toRet = toRun.Invoke();
                     if (toRet.retryRequested)
                     {
-                        Thread.Sleep(TimeSpan.FromSeconds(1));
+                        deadline.doCancellableSleep(TimeSpan.FromSeconds(3));
                         continue;
                     }
                     if (toRet.error != null)
