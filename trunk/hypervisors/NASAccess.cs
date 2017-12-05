@@ -59,6 +59,10 @@ namespace hypervisors
 
         public abstract List<iscsiPortal> getPortals();
 
+        public abstract List<user> getUsers();
+        public abstract user updateUser(user userToChange);
+        public abstract iscsiPortal createPortal(string portalIPs);
+        public abstract targetGroup createTargetGroup(iscsiPortal associatedPortal, iscsiTarget tgt);
     }
 
     [DataContract]
@@ -106,6 +110,19 @@ namespace hypervisors
             uncachedNAS.getSnapshots().ForEach(x => snapshots.TryAdd(x.id, x));
             uncachedNAS.getTargetGroups().ForEach(x => targetGroups.TryAdd(x.id, x));
             uncachedNAS.getPortals().ForEach(x => portals.TryAdd(x.id, x));
+
+            // If there are no portals, then we make a default one
+            if (portals.Count == 0)
+            {
+                iscsiPortal newPortal = uncachedNAS.createPortal("0.0.0.0:3260");
+                portals.TryAdd(newPortal.id, newPortal);
+            }
+            // Same for target groups
+            if (targetGroups.Count == 0)
+            {
+//                targetGroup newTgtGrp = uncachedNAS.createTargetGroup(portals.Values.First());
+//                targetGroups.TryAdd(newTgtGrp.id, newTgtGrp);
+            }
 
             waitUntilISCSIConfigFlushed(true);
         }
@@ -300,6 +317,7 @@ namespace hypervisors
         {
             uncachedNAS.deleteISCSITarget(tgt);
             iscsiTarget foo;
+            targets.TryRemove(tgt.id, out foo);
             var toDel = TTEExtents.Where(x => x.Value.iscsi_target == tgt.id);
             foreach (var tte in toDel)
             {
@@ -351,6 +369,28 @@ namespace hypervisors
         public override List<iscsiPortal> getPortals()
         {
             return portals.Values.ToList();
+        }
+
+        public override List<user> getUsers()
+        {
+            return uncachedNAS.getUsers();
+        }
+
+        public override user updateUser(user userToChange)
+        {
+            return uncachedNAS.updateUser(userToChange);
+        }
+
+        public override iscsiPortal createPortal(string portalIPs)
+        {
+            return uncachedNAS.createPortal(portalIPs);
+        }
+
+        public override targetGroup createTargetGroup(iscsiPortal associatedPortal, iscsiTarget tgt)
+        {
+            var newTG = uncachedNAS.createTargetGroup(associatedPortal, tgt);
+            targetGroups.TryAdd(newTG.id, newTG);
+            return newTG;
         }
     }
 
@@ -708,6 +748,19 @@ namespace hypervisors
             }
         }
 
+        public override List<user> getUsers()
+        {
+            return doReqForJSON<List<user>>("http://" + _serverIp + "/api/v1.0/account/users/", "GET", HttpStatusCode.OK);
+        }
+
+        public override user updateUser(user userToChange)
+        {
+            string payload = String.Format("{{\"id\": \"{0}\", " +
+                                           "\"bsdusr_sshpubkey\": \"{1}\" " +
+                                           "}}", userToChange.id, userToChange.bsdusr_sshpubkey.Trim());
+            return doReqForJSON<user>("http://" + _serverIp + "/api/v1.0/account/users/" + userToChange.id + "/", "PUT", HttpStatusCode.OK, payload);
+        }
+
         public override iscsiTarget addISCSITarget(iscsiTarget toAdd)
         {
             string payload = String.Format("{{\"iscsi_target_name\": \"{0}\", " +
@@ -806,12 +859,40 @@ namespace hypervisors
             return doReqForJSON<snapshot>("http://" + _serverIp + "/api/v1.0/storage/snapshot/", "post", HttpStatusCode.Created, payload);
         }
 
+        public override iscsiPortal createPortal(string portalIPs)
+        {
+            string payload = String.Format("{{\"iscsi_target_portal_ips\": [ \"{0}\" ] " + "}}", portalIPs);
+
+            return doReqForJSON<iscsiPortal>("http://" + _serverIp + "/api/v1.0/services/iscsi/portal/", "post", HttpStatusCode.Created, payload);
+        }
+
         public override void deleteSnapshot(snapshot toDelete)
         {
             string name = Uri.EscapeDataString(toDelete.fullname);
             string url = "http://" + _serverIp + "/api/v1.0/storage/snapshot/" + name;
             doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
+
+        public override targetGroup createTargetGroup(iscsiPortal associatedPortal, iscsiTarget tgt)
+        {
+            string payload = String.Format("{{\"iscsi_target_portalgroup\": \"{0}\", " +
+                                             "\"iscsi_target\": \"{1}\" " +
+                                           "}}", associatedPortal.id, tgt.id);
+
+            return doReqForJSON<targetGroup>("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/", "post", HttpStatusCode.Created, payload);
+        }
+    }
+
+    public class user
+    {
+        [JsonProperty("id")]
+        public string id { get; set; }
+
+        [JsonProperty("bsdusr_sshpubkey")]
+        public string bsdusr_sshpubkey { get; set; }
+
+        [JsonProperty("bsdusr_uid")]
+        public int bsdusr_uid { get; set; }
     }
 
     public class targetGroup

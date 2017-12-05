@@ -283,9 +283,9 @@ namespace hypervisors
         public override void mkdir(string newDir, cancellableDateTime deadline = null)
         {
             if (deadline == null)
-                deadline = new cancellableDateTime(TimeSpan.FromMinutes(1));
+                deadline = new cancellableDateTime(TimeSpan.FromSeconds(10));
 
-            doWithRetryOnSomeExceptions(() => { executor.mkdir(newDir); }, TimeSpan.FromSeconds(10));
+            doWithRetryOnSomeExceptions(() => { executor.mkdir(newDir); }, deadline);
         }
 
         public override hypSpec_vmware getConnectionSpec()
