@@ -366,6 +366,26 @@ namespace hypervisors
                 return new List<iscsiPortal>(portalList);
             }
         }
+
+        public override List<user> getUsers()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override user updateUser(user userToChange)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override iscsiPortal createPortal(string portalIPs)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override targetGroup createTargetGroup(iscsiPortal associatedPortal, iscsiTarget tgt)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     [Serializable]
