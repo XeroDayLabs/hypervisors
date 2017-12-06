@@ -270,7 +270,7 @@ namespace hypervisors
         public void throwIfTimedOutOrCancelled(string cancellationMessage = null)
         {
             if (!stillOK)
-                throw new TimeoutException(cancellationMessage);
+                throw new TimeoutException(cancellationMessage + " @ " + Environment.StackTrace);
         }
 
         public void markCancelled()
