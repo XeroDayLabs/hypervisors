@@ -26,11 +26,13 @@ namespace hypervisors
 
     public class hypervisor_iLo : hypervisorWithSpec<hypSpec_iLo>
     {
-        private static Dictionary<string, refCount<hypervisor_iLo_HTTP>> _ilos = new Dictionary<string, refCount<hypervisor_iLo_HTTP>>();
+        private static readonly Dictionary<string, refCount<hypervisor_iLo_HTTP>> _ilos = new Dictionary<string, refCount<hypervisor_iLo_HTTP>>();
 
-        private remoteExecution _executor;
+        private readonly remoteExecution _executor;
 
-        private hypSpec_iLo _spec;
+        private readonly hypSpec_iLo _spec;
+
+        private readonly FreeNASWithCaching theNas;
 
         public hypervisor_iLo(hypSpec_iLo spec, clientExecutionMethod newExecMethod = clientExecutionMethod.smbWithPSExec)
         {
@@ -46,6 +48,9 @@ namespace hypervisors
                     _ilos[spec.iLoHostname].addRef();
                 }
             }
+
+            theNas = FreeNasGroup.getOrMake(_spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
+
             if (newExecMethod == clientExecutionMethod.smbWithPSExec)
                 _executor = new SMBExecutorWithPSExec(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
             else if (newExecMethod == clientExecutionMethod.smbWithWMI)
@@ -58,7 +63,7 @@ namespace hypervisors
 
         public override void restoreSnapshot()
         {
-            freeNASSnapshot.restoreSnapshot(this, _spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword, new cancellableDateTime(TimeSpan.FromSeconds(60)));
+            freeNASSnapshot.restoreSnapshot(this, theNas, new cancellableDateTime(TimeSpan.FromMinutes(5)));
         }
 
         public override void connect()

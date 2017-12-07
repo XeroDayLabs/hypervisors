@@ -1,22 +1,13 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 
 namespace hypervisors
 {
     public static class freeNASSnapshot
     {
-        public static void restoreSnapshot<T>(hypervisorWithSpec<T> hyp, NASParams nasParams, cancellableDateTime deadline)
-        {
-            restoreSnapshot(hyp, nasParams.IP, nasParams.username, nasParams.password, deadline);
-        }
-
-        public static void restoreSnapshot<T>(hypervisorWithSpec<T> hyp, string freeNASIP, string freeNASUsername, string freeNASPassword, cancellableDateTime deadline)
+        public static void restoreSnapshot<T>(hypervisorWithSpec<T> hyp, FreeNASWithCaching nas, cancellableDateTime deadline)
         {
             hypSpec_withWindbgKernel _spec = hyp.getBaseConnectionSpec();
-
-            NASAccess nas = new FreeNAS(freeNASIP, freeNASUsername, freeNASPassword);
 
             // Find the device snapshot, so we can get information about it needed to get the ISCSI volume
             snapshotObjects shotObjects = getSnapshotObjectsFromNAS(nas, _spec.snapshotFullName);

@@ -357,32 +357,26 @@ namespace hypervisors
     /// </summary>
     public class hypervisor_vmware_FreeNAS : hypervisor_vmware_withoutSnapshots
     {
-        private string _freeNASIP;
-        private string _freeNASUsername;
-        private string _freeNASPassword;
+        private readonly FreeNASWithCaching nas;
 
         public hypervisor_vmware_FreeNAS(hypSpec_vmware spec,
             NASParams nasParams,
             clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
             : base(spec, newExecMethod)
         {
-            _freeNASIP = nasParams.IP;
-            _freeNASUsername = nasParams.username;
-            _freeNASPassword = nasParams.password;
+            nas = FreeNasGroup.getOrMake(nasParams.IP, nasParams.username, nasParams.password);
         }
 
         public hypervisor_vmware_FreeNAS(hypSpec_vmware spec,
             string freeNasip, string freeNasUsername, string freeNasPassword, clientExecutionMethod newExecMethod = clientExecutionMethod.vmwaretools)
             : base(spec, newExecMethod)
         {
-            _freeNASIP = freeNasip;
-            _freeNASUsername = freeNasUsername;
-            _freeNASPassword = freeNasPassword;
+            nas = FreeNasGroup.getOrMake(freeNasip, freeNasUsername, freeNasPassword);
         }
 
         public override void restoreSnapshot()
         {
-            freeNASSnapshot.restoreSnapshot(this, _freeNASIP, _freeNASUsername, _freeNASPassword, new cancellableDateTime(TimeSpan.FromMinutes(60)));
+            freeNASSnapshot.restoreSnapshot(this, nas, new cancellableDateTime(TimeSpan.FromMinutes(5)));
         }
     }
 

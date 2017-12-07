@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -7,6 +8,11 @@ using System.IO;
 using System.Linq;
 using System.Management;
 using System.Net;
+using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
+using System.Runtime.Versioning;
+using System.Security;
+using System.Security.Permissions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,6 +21,8 @@ namespace hypervisors
     /// <summary>
     /// This is a legacy psexec.exe-powered executor, intended as a temporary solution for systems that cannot yet work properly
     /// with WMI-based execution.
+    /// It assumes the root of C:\ is shared as "C" on the guest.
+    /// It is neccessary to set the required registry key on the guest before using this - see the wiki. 
     /// </summary>
     public class SMBExecutorWithPSExec : SMBExecutor
     {
@@ -28,7 +36,7 @@ namespace hypervisors
             return _startExecutableAsync(toExecute, args, workingDir, false);
         }
 
-        public IAsyncExecutionResult startExecutableAsyncInteractively(string toExecute, string args, string workingDir = null)
+        public new IAsyncExecutionResult startExecutableAsyncInteractively(string toExecute, string args, string workingDir = null)
         {
             return _startExecutableAsync(toExecute, args, workingDir, true);
         }
@@ -118,10 +126,8 @@ namespace hypervisors
     }
 
     /// <summary>
-    /// This class exposes a bare windows box. It uses SMB to copy files, and can spawn processes (by shelling out to psexec).
+    /// This class exposes a bare windows box. It uses SMB to copy files, and WMI to execute things.
     /// It assumes the root of C:\ is shared as "C" on the guest.
-    /// It may be neccessary to set the required registry key on the guest before using this, or it may not be, since we moved to
-    /// WMI for remote execution instead of shelling out to psexec.
     /// </summary>
     public class SMBExecutor : remoteExecution
     {

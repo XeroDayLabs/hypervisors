@@ -78,7 +78,26 @@ namespace hypervisors
         public string password;
     }
 
-    public class FreeNASWithCaching :  NASAccess
+    public static class FreeNasGroup 
+    {
+        private static readonly ConcurrentDictionary<string, FreeNASWithCaching> nasses = new ConcurrentDictionary<string, FreeNASWithCaching>();
+
+        public static FreeNASWithCaching getOrMake(string host, string username, string password)
+        {
+            string IDString = String.Format("{0}-{1}-{2}", host, username, password);
+            if (nasses.ContainsKey(IDString))
+                return nasses[IDString];
+            lock (nasses)
+            {
+                if (nasses.ContainsKey(IDString))
+                    return nasses[IDString];
+                nasses.TryAdd(IDString, new FreeNASWithCaching(host, username, password));
+                return nasses[IDString];
+            }
+        }
+    }
+
+    public class FreeNASWithCaching : NASAccess
     {
         private readonly ConcurrentDictionary<int, iscsiTargetToExtentMapping> TTEExtents = new ConcurrentDictionary<int, iscsiTargetToExtentMapping>();
         private readonly ConcurrentDictionary<int, iscsiExtent> extents = new ConcurrentDictionary<int, iscsiExtent>();
@@ -417,14 +436,14 @@ namespace hypervisors
         /// do one at a time. We could manage different sessions properly for some speedup here, but freenas has issues with lots
         /// of parallelism anyway..
         /// </summary>
-        private readonly Object nonAPIReqLock = new Object();
+        private static readonly Object nonAPIReqLock = new Object();
 
         /// <summary>
         /// This lock is used to serialise requests to the FreeNAS api. It is used because FreeNAS really doesn't deal well with
         /// lots of simultanenous requests, so we end up retrying with a delay, which is much less effecient than waiting on a 
         /// lock.
         /// </summary>
-        private readonly Object ReqLock = new Object();
+        private static readonly Object ReqLock = new Object();
 
         public FreeNAS(hypSpec_iLo hyp)
         {
