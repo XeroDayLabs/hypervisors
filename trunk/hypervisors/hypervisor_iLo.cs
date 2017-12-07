@@ -49,7 +49,8 @@ namespace hypervisors
                 }
             }
 
-            theNas = FreeNasGroup.getOrMake(_spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
+            if (_spec.iscsiserverIP != null && _spec.iscsiServerUsername != null && _spec.iscsiServerPassword != null)
+                theNas = FreeNasGroup.getOrMake(_spec.iscsiserverIP, _spec.iscsiServerUsername, _spec.iscsiServerPassword);
 
             if (newExecMethod == clientExecutionMethod.smbWithPSExec)
                 _executor = new SMBExecutorWithPSExec(spec.kernelDebugIPOrHostname, spec.hostUsername, spec.hostPassword);
