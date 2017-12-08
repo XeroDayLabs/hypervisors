@@ -27,24 +27,27 @@ namespace hypervisors
 
     public abstract class NASAccess
     {
-        public abstract iscsiTargetToExtentMapping addISCSITargetToExtent(int iscsiTarget, iscsiExtent newExtent);
+        public abstract iscsiTargetToExtentMapping addISCSITargetToExtent(string iscsiTargetID, iscsiExtent newExtent);
         public abstract void deleteISCSITargetToExtent(iscsiTargetToExtentMapping tgtToExtent);
         public abstract List<iscsiTargetToExtentMapping> getTargetToExtents();
+        public abstract void invalidateTargetToExtents();
 
         public abstract iscsiExtent addISCSIExtent(iscsiExtent extent);
         public abstract void deleteISCSIExtent(iscsiExtent extent);
         public abstract List<iscsiExtent> getExtents();
-
-        public abstract void rollbackSnapshot(snapshot shotToRestore);
+        public abstract void invalidateExtents();
 
         public abstract List<iscsiTarget> getISCSITargets();
         public abstract void deleteISCSITarget(iscsiTarget tgt);
         public abstract void waitUntilISCSIConfigFlushed(bool force = false);
+        public abstract void invalidateTargets();
 
         public abstract List<snapshot> getSnapshots();
         public abstract void deleteSnapshot(snapshot toDelete);
         public abstract snapshot createSnapshot(string dataset, string snapshotName);
         public abstract void cloneSnapshot(snapshot toClone, string fullCloneName);
+        public abstract void rollbackSnapshot(snapshot shotToRestore);
+        public abstract void invalidateSnapshots();
 
         public abstract List<volume> getVolumes();
         public abstract volume findVolumeByName(List<volume> volumes, string cloneName);
@@ -99,13 +102,20 @@ namespace hypervisors
 
     public class FreeNASWithCaching : NASAccess
     {
-        private readonly ConcurrentDictionary<int, iscsiTargetToExtentMapping> TTEExtents = new ConcurrentDictionary<int, iscsiTargetToExtentMapping>();
-        private readonly ConcurrentDictionary<int, iscsiExtent> extents = new ConcurrentDictionary<int, iscsiExtent>();
-        private readonly ConcurrentDictionary<int, iscsiTarget> targets = new ConcurrentDictionary<int, iscsiTarget>();
-        private readonly ConcurrentDictionary<int, volume> volumes = new ConcurrentDictionary<int, volume>();
+        private readonly ConcurrentDictionary<string, iscsiTargetToExtentMapping> TTEExtents = new ConcurrentDictionary<string, iscsiTargetToExtentMapping>();
+        private readonly ConcurrentDictionary<string, iscsiExtent> extents = new ConcurrentDictionary<string, iscsiExtent>();
+        private readonly ConcurrentDictionary<string, iscsiTarget> targets = new ConcurrentDictionary<string, iscsiTarget>();
+        private readonly ConcurrentDictionary<string, volume> volumes = new ConcurrentDictionary<string, volume>();
         private readonly ConcurrentDictionary<string, snapshot> snapshots = new ConcurrentDictionary<string, snapshot>();
         private readonly ConcurrentDictionary<string, targetGroup> targetGroups = new ConcurrentDictionary<string, targetGroup>();
         private readonly ConcurrentDictionary<string, iscsiPortal> portals = new ConcurrentDictionary<string, iscsiPortal>();
+
+        // We don't want anything to use these collections while they are being updated, so we use a reader/writer lock to prevent
+        // that while permitting many simultaneous readers.
+        private ReaderWriterLockSlim TTEExtentsLock = new ReaderWriterLockSlim();
+        private ReaderWriterLockSlim extentsLock = new ReaderWriterLockSlim();
+        private ReaderWriterLockSlim targetsLock = new ReaderWriterLockSlim();
+        private ReaderWriterLockSlim snapshotsLock = new ReaderWriterLockSlim();
 
         private readonly FreeNAS uncachedNAS;
 
@@ -122,38 +132,32 @@ namespace hypervisors
 
         private void init()
         {
-            uncachedNAS.getTargetToExtents().ForEach(x => TTEExtents.TryAdd(x.id, x));
-            uncachedNAS.getExtents().ForEach(x => extents.TryAdd(x.id, x));
-            uncachedNAS.getISCSITargets().ForEach(x => targets.TryAdd(x.id, x));
+            invalidateTargetToExtents();
+            invalidateExtents();
+            invalidateSnapshots();
+            invalidateTargets();
             uncachedNAS.getVolumes().ForEach(x => volumes.TryAdd(x.id, x));
-            uncachedNAS.getSnapshots().ForEach(x => snapshots.TryAdd(x.id, x));
             uncachedNAS.getTargetGroups().ForEach(x => targetGroups.TryAdd(x.id, x));
             uncachedNAS.getPortals().ForEach(x => portals.TryAdd(x.id, x));
 
-            // If there are no portals, then we make a default one
+            // If there are no portals, then we make a default one, since iscsi won't function without it
             if (portals.Count == 0)
             {
                 iscsiPortal newPortal = uncachedNAS.createPortal("0.0.0.0:3260");
                 portals.TryAdd(newPortal.id, newPortal);
             }
-            // Same for target groups
-            if (targetGroups.Count == 0)
-            {
-//                targetGroup newTgtGrp = uncachedNAS.createTargetGroup(portals.Values.First());
-//                targetGroups.TryAdd(newTgtGrp.id, newTgtGrp);
-            }
 
             waitUntilISCSIConfigFlushed(true);
         }
-        
-        public override iscsiTargetToExtentMapping addISCSITargetToExtent(int iscsiTarget, iscsiExtent newExtent)
+
+        public override iscsiTargetToExtentMapping addISCSITargetToExtent(string iscsiTargetID, iscsiExtent newExtent)
         {
             lock (this)
             {
                 waitingISCSIOperations++;
             }
 
-            iscsiTargetToExtentMapping newMapping = uncachedNAS.addISCSITargetToExtent(iscsiTarget, newExtent);
+            iscsiTargetToExtentMapping newMapping = uncachedNAS.addISCSITargetToExtent(iscsiTargetID, newExtent);
             TTEExtents.TryAdd(newMapping.id, newMapping);
 
             lock (this)
@@ -201,6 +205,11 @@ namespace hypervisors
             return TTEExtents.Values.ToList();
         }
 
+        public override void invalidateTargetToExtents()
+        {
+            invalidate(TTEExtentsLock, uncachedNAS.getTargetToExtents(), TTEExtents);
+        }
+
         public override iscsiExtent addISCSIExtent(iscsiExtent extent)
         {
             lock (this)
@@ -244,9 +253,33 @@ namespace hypervisors
             return extents.Values.ToList();
         }
 
+        public override void invalidateExtents()
+        {
+            invalidate(extentsLock, uncachedNAS.getExtents(), extents);
+        }
+
         public override void rollbackSnapshot(snapshot shotToRestore)
         {
-            uncachedNAS.rollbackSnapshot(shotToRestore);
+            snapshotsLock.EnterWriteLock();
+            try
+            {
+                uncachedNAS.getSnapshots().Clear();
+                uncachedNAS.getSnapshots().ForEach(x => snapshots.TryAdd(x.id, x));
+            }
+            catch (Exception)
+            {
+                snapshots.Clear();
+                throw;
+            }
+            finally
+            {
+                snapshotsLock.ExitWriteLock();
+            }
+        }
+
+        public override void invalidateSnapshots()
+        {
+            invalidate(extentsLock, uncachedNAS.getSnapshots(), snapshots);
         }
 
         public override void waitUntilISCSIConfigFlushed(bool force = false)
@@ -293,6 +326,11 @@ namespace hypervisors
                 if (dirtyThreadsAtStart.ContainsKey(kvp.Key))
                     kvp.Value.lastFlushed = dirtyThreadsAtStart[kvp.Key].lastUnclean;
             }
+        }
+
+        public override void invalidateTargets()
+        {
+            invalidate(targetsLock, uncachedNAS.getISCSITargets(), targets);
         }
 
         public override List<snapshot> getSnapshots()
@@ -410,6 +448,26 @@ namespace hypervisors
             var newTG = uncachedNAS.createTargetGroup(associatedPortal, tgt);
             targetGroups.TryAdd(newTG.id, newTG);
             return newTG;
+        }
+
+        private void invalidate<T>(ReaderWriterLockSlim lockToTake, List<T> collectionSource, ConcurrentDictionary<string, T> collectionToInvalidate)
+            where T : thingWithID
+        {
+            lockToTake.EnterWriteLock();
+            try
+            {
+                collectionToInvalidate.Clear();
+                collectionSource.ForEach(x => collectionToInvalidate.TryAdd(x.id, x));
+            }
+            catch (Exception)
+            {
+                collectionToInvalidate.Clear();
+                throw;
+            }
+            finally
+            {
+                lockToTake.ExitWriteLock();
+            }
         }
     }
 
@@ -565,6 +623,11 @@ namespace hypervisors
             }
         }
 
+        public override void invalidateExtents()
+        {
+
+        }
+
         public override List<iscsiTarget> getISCSITargets()
         {
             return doReqForJSON<List<iscsiTarget>>("http://" + _serverIp + "/api/v1.0/services/iscsi/target/?limit=99999", "get", HttpStatusCode.OK);
@@ -582,9 +645,19 @@ namespace hypervisors
             doReq(url, "GET", HttpStatusCode.OK);
         }
 
+        public override void invalidateTargets()
+        {
+
+        }
+
         public override List<iscsiTargetToExtentMapping> getTargetToExtents()
         {
             return doReqForJSON<List<iscsiTargetToExtentMapping>>("http://" + _serverIp + "/api/v1.0/services/iscsi/targettoextent/?limit=99999", "get", HttpStatusCode.OK);
+        }
+
+        public override void invalidateTargetToExtents()
+        {
+            
         }
 
         public override List<iscsiExtent> getExtents()
@@ -619,6 +692,11 @@ namespace hypervisors
         {
             string url = String.Format("http://{0}/api/v1.0/services/iscsi/extent/{1}/", _serverIp, extent.id);
             doReq(url, "DELETE", HttpStatusCode.NoContent);
+        }
+
+        public override void invalidateSnapshots()
+        {
+
         }
 
         public override List<volume> getVolumes()
@@ -788,7 +866,7 @@ namespace hypervisors
             return doReqForJSON<iscsiTarget>("http://" + _serverIp + "/api/v1.0/services/iscsi/target/", "POST", HttpStatusCode.Created, payload);
         }
 
-        public override iscsiTargetToExtentMapping addISCSITargetToExtent(int targetID, iscsiExtent extent)
+        public override iscsiTargetToExtentMapping addISCSITargetToExtent(string targetID, iscsiExtent extent)
         {
             string payload = String.Format("{{" +
                                            "\"iscsi_target\": \"{0}\", " +
@@ -902,25 +980,25 @@ namespace hypervisors
         }
     }
 
-    public class user
+    public class thingWithID
     {
         [JsonProperty("id")]
-        public string id { get; set; }
+        public string id { get; set; }        
+    }
 
+    public class user : thingWithID
+    {
         [JsonProperty("bsdusr_sshpubkey")]
         public string bsdusr_sshpubkey { get; set; }
 
         [JsonProperty("bsdusr_uid")]
-        public int bsdusr_uid { get; set; }
+        public string bsdusr_uid { get; set; }
     }
 
-    public class targetGroup
+    public class targetGroup : thingWithID
     {
-        [JsonProperty("id")]
-        public string id { get; set; }
-
         [JsonProperty("iscsi_target")]
-        public int iscsi_target { get; set; }
+        public string iscsi_target { get; set; }
 
         [JsonProperty("iscsi_target_authgroup")]
         public string iscsi_target_authgroup { get; set; }
@@ -938,11 +1016,8 @@ namespace hypervisors
         public string iscsi_target_portalgroup { get; set; }
     }
 
-    public class iscsiPortal
+    public class iscsiPortal : thingWithID
     {
-        [JsonProperty("id")]
-        public string id { get; set; }
-
         [JsonProperty("iscsi_target_portal_comment")]
         public string iscsi_target_portal_comment { get; set; }
 
@@ -960,16 +1035,13 @@ namespace hypervisors
     }
 
 
-    public class snapshot
+    public class snapshot : thingWithID
     {
         [JsonProperty("filesystem")]
         public string filesystem { get; set; }
 
         [JsonProperty("fullname")]
         public string fullname { get; set; }
-
-        [JsonProperty("id")]
-        public string id { get; set; }
 
         [JsonProperty("mostrecent")]
         public string mostrecent { get; set; }
@@ -990,11 +1062,8 @@ namespace hypervisors
         public string used { get; set; }
     }
 
-    public class volume
+    public class volume : thingWithID
     {
-        [JsonProperty("id")]
-        public int id { get; set; }
-
         [JsonProperty("avail")]
         public string avail { get; set; }
 
@@ -1053,11 +1122,8 @@ namespace hypervisors
         public List<volume> children { get; set; }
     }
 
-    public class iscsiExtent
+    public class iscsiExtent : thingWithID
     {
-        [JsonProperty("id")]
-        public int id { get; set; }
-
         [JsonProperty("iscsi_target_extent_avail_threshold")]
         public string iscsi_target_extent_avail_threshold { get; set; }
 
@@ -1107,30 +1173,24 @@ namespace hypervisors
         public string iscsi_target_extent_xen { get; set; }
     }
 
-    public class iscsiTargetToExtentMapping
+    public class iscsiTargetToExtentMapping : thingWithID
     {
         [JsonProperty("iscsi_target")]
-        public int iscsi_target { get; set; }
+        public string iscsi_target { get; set; }
 
         [JsonProperty("iscsi_extent")]
-        public int iscsi_extent { get; set; }
+        public string iscsi_extent { get; set; }
 
         [JsonProperty("iscsi_lunid")]
         public string iscsi_lunid { get; set; }
-
-        [JsonProperty("id")]
-        public int id { get; set; }
     }
 
-    public class iscsiTarget
+    public class iscsiTarget : thingWithID
     {
         [JsonProperty("iscsi_target_name")]
         public string targetName { get; set; }
 
         [JsonProperty("iscsi_target_alias")]
         public string targetAlias { get; set; }
-
-        [JsonProperty("id")]
-        public int id { get; set; }
     }
 }

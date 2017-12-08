@@ -10,28 +10,28 @@ namespace hypervisors
         public List<mockedCall> events = new List<mockedCall>();
 
         private List<iscsiPortal> portalList = new List<iscsiPortal>();
-        private Dictionary<int, iscsiTargetToExtentMapping> tgtToExtents = new Dictionary<int, iscsiTargetToExtentMapping>();
-        private Dictionary<int, iscsiExtent> extents = new Dictionary<int, iscsiExtent>();
-        private Dictionary<int, iscsiTarget> targets = new Dictionary<int, iscsiTarget>();
+        private Dictionary<string, iscsiTargetToExtentMapping> tgtToExtents = new Dictionary<string, iscsiTargetToExtentMapping>();
+        private Dictionary<string, iscsiExtent> extents = new Dictionary<string, iscsiExtent>();
+        private Dictionary<string, iscsiTarget> targets = new Dictionary<string, iscsiTarget>();
         private Dictionary<string, targetGroup> targetGroups = new Dictionary<string, targetGroup>();
         private Dictionary<string, snapshot> snapshots = new Dictionary<string, snapshot>();
         private List<volume> volumes = new List<volume>();
 
         Random idGen = new Random('1');
-        
-        public override iscsiTargetToExtentMapping addISCSITargetToExtent(int iscsiTarget, iscsiExtent newExtent)
+
+        public override iscsiTargetToExtentMapping addISCSITargetToExtent(string iscsiTargetID, iscsiExtent newExtent)
         {
             lock (events)
             {
-                events.Add(new mockedCall("addISCSITargetToExtent", "iscsiTarget: '" + iscsiTarget + "' newExtent: " + newExtent));
+                events.Add(new mockedCall("addISCSITargetToExtent", "iscsiTarget: '" + iscsiTargetID + "' newExtent: " + newExtent));
             }
 
             lock (tgtToExtents)
             {
-                int newID = idGen.Next();
+                string newID = idGen.Next().ToString();
                 iscsiTargetToExtentMapping newMapping = new iscsiTargetToExtentMapping()
                 {
-                    id = newID, iscsi_target = iscsiTarget, iscsi_extent = newExtent.id, iscsi_lunid = "0"
+                    id = newID, iscsi_target = iscsiTargetID, iscsi_extent = newExtent.id, iscsi_lunid = "0"
                 };
                 tgtToExtents.Add(newID, newMapping);
                 return tgtToExtents[newID];
@@ -64,6 +64,13 @@ namespace hypervisors
             }
         }
 
+        public override void invalidateTargetToExtents()
+        {
+            lock (events)
+            {
+                events.Add(new mockedCall("invalidateTargetToExtents", null));
+            }
+        }
 
         public override iscsiExtent addISCSIExtent(iscsiExtent extent)
         {
@@ -74,7 +81,7 @@ namespace hypervisors
 
             lock (extents)
             {
-                int newID = idGen.Next();
+                string newID = idGen.Next().ToString();
                 extent.id = newID;
                 extents.Add(newID, extent);
                 return extents[newID];
@@ -107,11 +114,27 @@ namespace hypervisors
             }
         }
 
+        public override void invalidateExtents()
+        {
+            lock (events)
+            {
+                events.Add(new mockedCall("invalidateExtents", null));
+            }
+        }
+
         public override void rollbackSnapshot(snapshot shotToRestore)
         {
             lock (events)
             {
                 events.Add(new mockedCall("rollbackSnapshot", "shotToRestore: '" + shotToRestore));
+            }
+        }
+
+        public override void invalidateSnapshots()
+        {
+            lock (events)
+            {
+                events.Add(new mockedCall("invalidateSnapshots", null));
             }
         }
 
@@ -146,6 +169,14 @@ namespace hypervisors
             lock (events)
             {
                 events.Add(new mockedCall("waitUntilISCSIConfigFlushed"));
+            }
+        }
+
+        public override void invalidateTargets()
+        {
+            lock (events)
+            {
+                events.Add(new mockedCall("invalidateTargets", null));
             }
         }
 
@@ -233,7 +264,10 @@ namespace hypervisors
 
         public void addVolume(volume toAdd)
         {
-            //events.Add(new mockedCall("addVolume", "toAdd: " + toAdd));
+            lock (events)
+            {
+                events.Add(new mockedCall("addVolume", "toAdd: " + toAdd));
+            }
 
             lock (volumes)
             {
@@ -334,7 +368,7 @@ namespace hypervisors
 
             lock (targets)
             {
-                int newID = idGen.Next();
+                string newID = idGen.Next().ToString();
                 toAdd.id = newID;
                 targets.Add(newID, toAdd);
                 return targets[newID];

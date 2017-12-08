@@ -53,27 +53,70 @@ namespace hypervisors
 
         private static snapshotObjects getSnapshotObjectsFromNAS(NASAccess nas, string snapshotFullName)
         {
-            snapshot shotToRestore = nas.getSnapshots().SingleOrDefault(
-                x => x.fullname.ToLower().Contains("/" + snapshotFullName.ToLower() + "@") || x.id == snapshotFullName);
+            snapshot shotToRestore = getSnapshot(nas, snapshotFullName);
             if (shotToRestore == null)
-                throw new Exception("Cannot find snapshot " + snapshotFullName);
+            {
+                nas.invalidateSnapshots();
+                shotToRestore = getSnapshot(nas, snapshotFullName);
+                if (shotToRestore == null)
+                    throw new Exception("Cannot find snapshot " + snapshotFullName);
+            }
 
             // Now find the extent. We'll need to delete it before we can rollback the snapshot.
-            iscsiExtent extent = nas.getExtents().SingleOrDefault(x => snapshotFullName.Equals(x.iscsi_target_extent_name, StringComparison.CurrentCultureIgnoreCase));
+            iscsiExtent extent = getExtent(nas, snapshotFullName);
             if (extent == null)
-                throw new Exception("Cannot find extent " + snapshotFullName);
+            {
+                nas.invalidateExtents();
+                extent = getExtent(nas, snapshotFullName);
+                if (extent == null)
+                    throw new Exception("Cannot find extent " + snapshotFullName);
+            }
 
             // Find the 'target to extent' mapping, since this will need to be deleted before we can delete the extent.
-            iscsiTargetToExtentMapping tgtToExtent = nas.getTargetToExtents().SingleOrDefault(x => x.iscsi_extent == extent.id);
+            iscsiTargetToExtentMapping tgtToExtent = getTgtToExtent(nas, extent);
             if (tgtToExtent == null)
-                throw new Exception("Cannot find target-to-extent mapping with ID " + extent.id + " for snapshot " + shotToRestore.name);
+            {
+                nas.invalidateTargetToExtents();
+                tgtToExtent = getTgtToExtent(nas, extent);
+                if (tgtToExtent == null)
+                    throw new Exception("Cannot find target-to-extent mapping with ID " + extent.id + " for snapshot " + shotToRestore.name);
+            }
 
+            // We find the target, as well, just to be sure that our cache is correct.
+            if (nas.getISCSITargets().Count(x => x.id == tgtToExtent.iscsi_target) == 0)
+            {
+                nas.invalidateTargets();
+                if (nas.getISCSITargets().Count(x => x.id == tgtToExtent.iscsi_target) == 0)
+                    throw new Exception("Cannot find target for snapshot " + snapshotFullName);
+            }
             return new snapshotObjects()
             {
                 extent = extent,
                 shotToRestore = shotToRestore,
                 tgtToExtent = tgtToExtent
             };
+        }
+
+        private static iscsiTargetToExtentMapping getTgtToExtent(NASAccess nas, iscsiExtent extent)
+        {
+            iscsiTargetToExtentMapping tgtToExtent = nas.getTargetToExtents().SingleOrDefault(x => x.iscsi_extent == extent.id);
+            return tgtToExtent;
+        }
+
+        private static iscsiExtent getExtent(NASAccess nas, string snapshotFullName)
+        {
+            iscsiExtent extent =
+                nas.getExtents()
+                    .SingleOrDefault(
+                        x => snapshotFullName.Equals(x.iscsi_target_extent_name, StringComparison.CurrentCultureIgnoreCase));
+            return extent;
+        }
+
+        private static snapshot getSnapshot(NASAccess nas, string snapshotFullName)
+        {
+            snapshot shotToRestore = nas.getSnapshots().SingleOrDefault(
+                        x => x.fullname.ToLower().Contains("/" + snapshotFullName.ToLower() + "@") || x.id == snapshotFullName);
+            return shotToRestore;
         }
     }
 }
