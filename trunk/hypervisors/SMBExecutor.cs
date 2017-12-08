@@ -31,12 +31,12 @@ namespace hypervisors
         {
         }
 
-        public IAsyncExecutionResult _startExecutableAsync(string toExecute, string args, string workingDir = null)
+        public override IAsyncExecutionResult startExecutableAsync(string toExecute, string args, string workingDir = null)
         {
             return _startExecutableAsync(toExecute, args, workingDir, false);
         }
 
-        public new IAsyncExecutionResult startExecutableAsyncInteractively(string toExecute, string args, string workingDir = null)
+        public override IAsyncExecutionResult startExecutableAsyncInteractively(string toExecute, string args, string workingDir = null)
         {
             return _startExecutableAsync(toExecute, args, workingDir, true);
         }
