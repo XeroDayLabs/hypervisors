@@ -11,11 +11,15 @@ namespace hypervisors
 
         public static Exception create(HttpWebResponse resp, string url, string contentString)
         {
-            if (resp.StatusCode == HttpStatusCode.Conflict)
-                return new nasConflictException("FreeNAS API call failed with 'conflict' status. URL " + url + " HTTP response body " + contentString);
-            else
-                return new nasAccessException("FreeNAS API call failed, status " + resp.StatusCode + ", URL " + url + 
-                                              " HTTP response body " + contentString);
+            switch (resp.StatusCode)
+            {
+                case HttpStatusCode.Conflict:
+                    return new nasConflictException("FreeNAS API call failed with 'conflict' status. URL " + url + " HTTP response body " + contentString);
+                case HttpStatusCode.NotFound:
+                    return new nasNotFoundException("FreeNAS API call failed with 'not found' status. URL " + url + " HTTP response body " + contentString);
+                default:
+                    return new nasAccessException("FreeNAS API call failed, status " + resp.StatusCode + ", URL " + url +  " HTTP response body " + contentString);
+            }
         }
     }
 }

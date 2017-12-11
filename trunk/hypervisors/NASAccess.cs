@@ -14,15 +14,16 @@ namespace hypervisors
 {
     public class nasConflictException : nasAccessException
     {
-        public nasConflictException()
-            : base()
-        {
-        }
+        public nasConflictException() : base() { }
 
-        public nasConflictException(string s)
-            : base(s)
-        {
-        }
+        public nasConflictException(string s) : base(s) { }
+    }
+
+    public class nasNotFoundException : nasAccessException
+    {
+        public nasNotFoundException() : base() { }
+
+        public nasNotFoundException(string s) : base(s) { }
     }
 
     public abstract class NASAccess
@@ -550,17 +551,14 @@ namespace hypervisors
 
             while (true)
             {
-                try
-                {
-                    return _doReq(url, method, expectedCode, payload);
-                }
-                catch (nasAccessException)
-                {
-                    if (!deadline.stillOK)
-                        throw;
+                resp toRet = _doReq(url, method, expectedCode, payload);
+                if (toRet != null)
+                    return toRet;
 
-                    deadline.doCancellableSleep(TimeSpan.FromSeconds(10));
-                }
+                if (!deadline.stillOK)
+                    throw new nasAccessException();
+
+                deadline.doCancellableSleep(TimeSpan.FromSeconds(10));
             }
         }
 
@@ -606,15 +604,20 @@ namespace hypervisors
                 }
                 catch (WebException e)
                 {
-                    if (e.Response == null)
+                    HttpWebResponse resp = e.Response as HttpWebResponse;
+
+                    if (resp == null)
                         throw new nasAccessException(e.Message);
 
-                    using (Stream respStream = e.Response.GetResponseStream())
+                    using (Stream respStream = resp.GetResponseStream())
                     {
+                        if (respStream == null)
+                            throw new nasAccessException(e.Message);
+
                         using (StreamReader respStreamReader = new StreamReader(respStream))
                         {
                             string contentString = respStreamReader.ReadToEnd();
-                            throw nasAccessException.create(((HttpWebResponse) e.Response), url, contentString);
+                            throw nasAccessException.create(resp, url, contentString);
                         }
                     }
                 }
