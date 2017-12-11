@@ -281,7 +281,8 @@ namespace hypervisors
         {
             if (!stillOK)
                 throw new TimeoutException(cancellationMessage + " @ " + Environment.StackTrace);
-            childDeadline.throwIfTimedOutOrCancelled(cancellationMessage);
+            if (childDeadline != null)
+                childDeadline.throwIfTimedOutOrCancelled(cancellationMessage);
         }
 
         public void markCancelled()
