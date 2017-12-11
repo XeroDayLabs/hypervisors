@@ -243,11 +243,19 @@ namespace hypervisors
     public class cancellableDateTime
     {
         private DateTime deadline;
+        private cancellableDateTime childDeadline = null;
         private bool isCancelled;
 
         public cancellableDateTime()
         {
             deadline = DateTime.MaxValue;
+            isCancelled = false;
+        }
+
+        public cancellableDateTime(TimeSpan newTimeout, cancellableDateTime newChildDeadline)
+        {
+            deadline = DateTime.Now + newTimeout;
+            childDeadline = newChildDeadline;
             isCancelled = false;
         }
 
@@ -263,6 +271,8 @@ namespace hypervisors
             {
                 if (isCancelled || DateTime.Now > deadline)
                     return false;
+                if (childDeadline != null)
+                    return childDeadline.stillOK;
                 return true;
             }
         }
@@ -271,11 +281,14 @@ namespace hypervisors
         {
             if (!stillOK)
                 throw new TimeoutException(cancellationMessage + " @ " + Environment.StackTrace);
+            childDeadline.throwIfTimedOutOrCancelled(cancellationMessage);
         }
 
         public void markCancelled()
         {
             isCancelled = true;
+            if (childDeadline != null)
+                childDeadline.markCancelled();
         }
 
         public TimeSpan getRemainingTimespan()

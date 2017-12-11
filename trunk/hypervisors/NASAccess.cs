@@ -534,8 +534,6 @@ namespace hypervisors
 
                 if (r.text.Contains("The request has timed out"))
                 {
-                    deadline.throwIfTimedOutOrCancelled();
-
                     deadline.doCancellableSleep(TimeSpan.FromSeconds(3));
                 }
                 else
