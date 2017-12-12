@@ -240,6 +240,9 @@ namespace hypervisors
                         case 0x800706ba:
                             // "The RPC server was unavailable"
                             return null;
+                        case 0x800706b5:
+                            // "The interface is unknown"
+                            return null;
                         default:
                             throw new Win32Exception(proc.ExitCode);
                     }
