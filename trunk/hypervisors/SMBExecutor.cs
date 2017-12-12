@@ -163,6 +163,7 @@ namespace hypervisors
             execFileSet fileSet = base.prepareForExecution(toExecute, args, tempDir);
             
             // Use a scheduled task to run interactively with the remote users desktop.
+            // Shell out to create it.
             string scheduledTaskName = Guid.NewGuid().ToString();
             using (hypervisor_localhost local = new hypervisor_localhost())
             {
@@ -190,33 +191,78 @@ namespace hypervisors
             if (workingDir == null)
                 workingDir = tempDir;
 
-            // We try to connect to the client before we do anything else. This is what usually times out.
-            // There's no way (?) to set a timeout for ManagementScope.connect, so we run it in a task and bail if it takes too
-            // long.
-            string wmiPath = String.Format("\\\\{0}\\root\\cimv2", _guestIP);
-            var scope = new ManagementScope(wmiPath, connOpts);
-            ManualResetEvent connectedOK = new ManualResetEvent(false);
-            Task foo = Task.Run(() =>
-            {
-                scope.Connect();
-                connectedOK.Set();
-            });
-            tasksToDispose.Add(foo);
-            if (!connectedOK.WaitOne(TimeSpan.FromSeconds(5)))
-                return null;
+            //
+            // We do things a bit differently to what we'd expect here.
+            // We don't use WMI by calling the WMI API. Instead, we shell out to wmic.exe.
+            // This is for a few reasons:
+            //  1) Poor timeout support on the ManagementScope API
+            //     There's no real way to change the timeout used by ManagementScope.Connect. The best we can do is to make a 
+            //     task which runs it async, and then to give up if it doesn't complete in time. Messy, and we can't stop it
+            //     from throwing when it fails.
+            //  2) Unsubstantiated reports online of people encountering memory leaks, particularly when using multithreading
+            //  3) I just saw an AccessViolationException in the method 'Connectnsecureiwbemservices', as called by this WMI
+            //     stuff
+            //  4) I'm seeing weird failiures to run things at unpredictable times and suspect this will fix things.
 
-            // We do this by creating two batch files on the target.
+            // We execute by creating two batch files on the target.
             // The first contains the command we're executing, and the second simply calls the first with redirection to the files
             // we want our output in.
             execFileSet fileSet = base.prepareForExecution(toExecute, args, tempDir);
 
-            var proc = new ManagementClass(scope, new ManagementPath("Win32_Process"), new ObjectGetOptions());
-            object[] methodCreateArgs = new object[] {fileSet.launcherPath, workingDir, null, 0};
-            UInt32 s = (UInt32) proc.InvokeMethod("create", methodCreateArgs);
-            if (s != 0)
-                return null;
+            string wmicArgs = string.Format("/node:\"{0}\" /user:\"{1}\" /password:\"{2}\" process call create \"cmd /c {3}\",\"{4}\"",
+                _guestIP, _username, _password, fileSet.launcherPath, workingDir);
+            ProcessStartInfo info = new ProcessStartInfo("wmic.exe", wmicArgs);
+            info.RedirectStandardError = true;
+            info.RedirectStandardOutput = true;
+            info.UseShellExecute = false;
+            info.WindowStyle = ProcessWindowStyle.Hidden;
 
-            return new asyncExecutionResultViaFile(this, fileSet);
+            using (Process proc = Process.Start(info))
+            {
+                if (!proc.WaitForExit((int)TimeSpan.FromSeconds(60).TotalMilliseconds))
+                {
+                    try
+                    {
+                        proc.Kill();
+                    }
+                    catch (Exception)
+                    {
+                    }
+
+                    return null;
+                }
+
+                // WMIC will return zero on success, or an error code
+                if (proc.ExitCode != 0)
+                {
+                    switch ((uint)proc.ExitCode)
+                    {
+                        case 0x800706ba:
+                            // "The RPC server was unavailable"
+                            return null;
+                        default:
+                            throw new Win32Exception(proc.ExitCode);
+                    }
+                }
+
+                // stdout will return something similar to the following:
+                //
+                //  Executing (Win32_Process)->Create()
+                //  Method execution successful.
+                //  Out Parameters:
+                //  instance of __PARAMETERS
+                //  {
+                //          ProcessId = 2176;
+                //          ReturnValue = 0;
+                //  };
+                string stdout = proc.StandardOutput.ReadToEnd();
+
+                if (!stdout.Contains("Method execution successful") ||
+                    !stdout.Contains("ReturnValue = 0;"))
+                    return null;
+
+                return new asyncExecutionResultViaFile(this, fileSet);
+            }
         }
 
         public override void mkdir(string newDir, cancellableDateTime deadline)
