@@ -246,6 +246,9 @@ namespace hypervisors
                         case 0x80007005:
                             // "Access is denied"
                             return null;
+                        case 0x80131500:
+                            // "Object invoked has disconnected from its clients"
+                            return null;
                         default:
                             throw new Win32Exception(proc.ExitCode);
                     }
