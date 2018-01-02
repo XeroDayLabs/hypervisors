@@ -10,7 +10,7 @@ echo "$gitfiles" | while read gitfile; do
   hash=`echo $gitfile | cut -b 8-47`
   filename=`echo $gitfile | cut -b 51-999`
   origsrc=`cygpath -w $(pwd)`/${filename}
-  origsrc=`echo $origsrc | tr '\\' '/'`
+  origsrc=`echo $origsrc | tr '/' '\\'`
   tempfile=$hash/${filename}
   url=${baseURL}/${filename}\&at=${commitid}?raw
   echo $origsrc*$tempfile*$url >> tmp.ini
