@@ -247,6 +247,7 @@ namespace hypervisors
                             // "Access is denied"
                             return null;
                         case 0x80131500:
+                        case 0x80010108:
                             // "Object invoked has disconnected from its clients"
                             return null;
                         default:
