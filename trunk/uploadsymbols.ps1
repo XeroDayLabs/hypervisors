@@ -32,7 +32,11 @@ $tmpIni.Close()
 # Run the SDK tool to inject path info
 ForEach($pdbfile in Get-ChildItem $srcDir\*.pdb)
 {
-  "c:\Program Files (x86)\Windows Kits\10\Debuggers\x64\srcsrv\pdbstr.exe -w -p:`"$pdbfile`" -s:srcsrv -i:$tmpfilename"
+  $p = New-Object System.Diagnostics.Process
+  $p.StartInfo.Filename = "c:\Program Files (x86)\Windows Kits\10\Debuggers\x64\srcsrv\pdbstr.exe"
+  $p.StartInfo.Arguments = "-w -p:`"$pdbfile`" -s:srcsrv -i:$tmpfilename"
+  $p.Start()
+  $p.WaitForExit()
 }
 
 # And copy PDBs up.
