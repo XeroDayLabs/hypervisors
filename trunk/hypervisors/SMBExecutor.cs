@@ -243,6 +243,9 @@ namespace hypervisors
                         case 0x800706b5:
                             // "The interface is unknown"
                             return null;
+                        case 0x80007005:
+                            // "Access is denied"
+                            return null;
                         default:
                             throw new Win32Exception(proc.ExitCode);
                     }
