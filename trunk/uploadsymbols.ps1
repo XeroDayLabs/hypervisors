@@ -2,7 +2,7 @@ $srcDir = $args[0]
 
 # Do some source indexing.
 $tmpfilename=$env:TEMP + '\tmp.ini'
-$baseURL="http://files.xd.lan:7990/projects/XD/repos/hypervisors/browse"
+$baseURL="http://files.xd.lan:7990/projects/XD/repos/hypervisors/browse/trunk"
 $commitid=(git rev-parse HEAD)
 Copy-Item tmp-pre.ini $tmpfilename
 
