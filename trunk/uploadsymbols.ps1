@@ -1,11 +1,11 @@
 $srcDir = $args[0]
 
 # Do some source indexing.
+$tmpfilename=$env:TEMP + '\tmp.ini'
 $baseURL="http://files.xd.lan:7990/projects/XD/repos/hypervisors/browse"
 $commitid=(git rev-parse HEAD)
-Copy-Item tmp-pre.ini tmp.ini
+Copy-Item tmp-pre.ini $tmpfilename
 
-$tmpfilename=$env:TEMP + '\tmp.ini'
 $tmpIni = [System.io.File]::Open($tmpfilename, 'Append', 'Write', 'None')
 
 # First off, do a 'git ls-files' to get hashes:
@@ -18,7 +18,7 @@ ForEach($line in  $lines)
   $filename = $filename.Replace('/', '\');
   $tempfile=$hash + '\' + $filename
   $url=$baseURL + '\' + $filename + "?raw&at=" + $commitid
-  $lineOut = $filename + "*" + $tempfile + "*" + $url + "\n"
+  $lineOut = $filename + "*" + $tempfile + "*" + $url + "`n"
   $lineOutBytes = $enc.GetBytes($lineOut)
   $tmpIni.write($lineOutBytes, 0, $lineOutBytes.Length)
 } 
