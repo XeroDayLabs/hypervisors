@@ -16,10 +16,10 @@ ForEach($line in  $lines)
 {
   $hash = $line.Substring(7,40);
   $filename = $line.Substring(50);
-  $filename = $basedir + '\' + $filename.Replace('/', '\');
+  $filename = $filename.Replace('/', '\');
   $tempfile=$hash + '\' + $filename
   $url=$baseURL + '\' + $filename + "?raw&at=" + $commitid
-  $lineOut = $filename + "*" + $tempfile + "*" + $url + "`n"
+  $lineOut = $basedir + '\' + $filename + "*" + $tempfile + "*" + $url + "`n"
   $lineOutBytes = $enc.GetBytes($lineOut)
   $tmpIni.write($lineOutBytes, 0, $lineOutBytes.Length)
 } 
