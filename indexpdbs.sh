@@ -12,7 +12,7 @@ echo "$gitfiles" | while read gitfile; do
   origsrc=`cygpath -w $(pwd)`/${filename}
   origsrc=`echo $origsrc | tr '/' '\\'`
   tempfile=$hash/${filename}
-  url=${baseURL}/${filename}\&at=${commitid}?raw
+  url=${baseURL}/${filename}?raw&at=${commitid}
   echo $origsrc*$tempfile*$url >> tmp.ini
 done 
 
