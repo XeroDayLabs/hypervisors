@@ -11,11 +11,12 @@ $tmpIni = [System.io.File]::Open($tmpfilename, 'Append', 'Write', 'None')
 # First off, do a 'git ls-files' to get hashes:
 $lines=(git ls-files -s).split("`n");
 $enc=[system.Text.Encoding]::UTF8
+$basedir=(pwd).Path
 ForEach($line in  $lines)
 {
   $hash = $line.Substring(7,40);
   $filename = $line.Substring(50);
-  $filename = $filename.Replace('/', '\');
+  $filename = $basedir + '\' + $filename.Replace('/', '\');
   $tempfile=$hash + '\' + $filename
   $url=$baseURL + '\' + $filename + "?raw&at=" + $commitid
   $lineOut = $filename + "*" + $tempfile + "*" + $url + "`n"
