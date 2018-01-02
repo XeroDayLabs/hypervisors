@@ -18,7 +18,7 @@ ForEach($line in  $lines)
   $filename = $filename.Replace('/', '\');
   $tempfile=$hash + '\' + $filename
   $url=$baseURL + '\' + $filename + "?raw&at=" + $commitid
-  $lineOut = $filename + "*" + $tempfile + "*" + $url
+  $lineOut = $filename + "*" + $tempfile + "*" + $url + "\n"
   $lineOutBytes = $enc.GetBytes($lineOut)
   $tmpIni.write($lineOutBytes, 0, $lineOutBytes.Length)
 } 
