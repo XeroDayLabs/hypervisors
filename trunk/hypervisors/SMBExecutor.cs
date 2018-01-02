@@ -243,7 +243,7 @@ namespace hypervisors
                         case 0x800706b5:
                             // "The interface is unknown"
                             return null;
-                        case 0x80007005:
+                        case 0x80070005:
                             // "Access is denied"
                             return null;
                         case 0x80131500:
