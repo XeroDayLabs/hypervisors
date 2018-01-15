@@ -9,7 +9,7 @@ namespace hypervisors
     {
         public List<mockedCall> events = new List<mockedCall>();
 
-        private List<iscsiPortal> portalList = new List<iscsiPortal>();
+        private Dictionary<string, iscsiPortal> portalList = new Dictionary<string, iscsiPortal>();
         private Dictionary<string, iscsiTargetToExtentMapping> tgtToExtents = new Dictionary<string, iscsiTargetToExtentMapping>();
         private Dictionary<string, iscsiExtent> extents = new Dictionary<string, iscsiExtent>();
         private Dictionary<string, iscsiTarget> targets = new Dictionary<string, iscsiTarget>();
@@ -284,7 +284,7 @@ namespace hypervisors
 
             lock (portalList)
             {
-                portalList.Add(toAdd);
+                portalList.Add(toAdd.id ,toAdd);
             }
 
             return toAdd;
@@ -412,7 +412,7 @@ namespace hypervisors
 
             lock (targetGroups)
             {
-                return new List<iscsiPortal>(portalList);
+                return new List<iscsiPortal>(portalList.Values);
             }
         }
 
@@ -428,12 +428,37 @@ namespace hypervisors
 
         public override iscsiPortal createPortal(string portalIPs)
         {
-            throw new NotImplementedException();
+            events.Add(new mockedCall("createPortal", "portalIPs: '" + portalIPs));
+
+            lock (portalList)
+            {
+                string newID = idGen.Next().ToString();
+                iscsiPortal newPortal = new iscsiPortal()
+                {
+                    id = newID,
+                    iscsi_target_portal_ips = new string[] { portalIPs }
+                };
+                portalList.Add(newID, newPortal);
+                return portalList[newID];
+            }
         }
 
         public override targetGroup createTargetGroup(iscsiPortal associatedPortal, iscsiTarget tgt)
         {
-            throw new NotImplementedException();
+            events.Add(new mockedCall("createTargetGroup", "associatedPortal ID: '" + associatedPortal.id  +  " target ID: " + tgt.id));
+
+            lock (targetGroups)
+            {
+                string newID = idGen.Next().ToString();
+                targetGroup newItem = new targetGroup()
+                {
+                    id = newID,
+                    iscsi_target =  tgt.id,
+                    iscsi_target_portalgroup = associatedPortal.id
+                };
+                targetGroups.Add(newID, newItem);
+                return targetGroups[newID];
+            }
         }
     }
 
