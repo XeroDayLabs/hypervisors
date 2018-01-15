@@ -62,6 +62,7 @@ namespace hypervisors
         public abstract targetGroup addTargetGroup(targetGroup tgtGrp, iscsiTarget newTarget);
 
         public abstract List<iscsiPortal> getPortals();
+        public abstract iscsiPortal addPortal(iscsiPortal toAdd);
 
         public abstract List<user> getUsers();
         public abstract user updateUser(user userToChange);
@@ -427,6 +428,14 @@ namespace hypervisors
         public override List<iscsiPortal> getPortals()
         {
             return portals.Values.ToList();
+        }
+
+        public override iscsiPortal addPortal(iscsiPortal toAdd)
+        {
+            iscsiPortal newVal = uncachedNAS.addPortal(toAdd);
+            portals.TryAdd(newVal.id, newVal);
+            markThisThreadISCSIDirty();
+            return newVal;
         }
 
         public override List<user> getUsers()
@@ -844,6 +853,13 @@ namespace hypervisors
 
                 throw;
             }
+        }
+
+        public override iscsiPortal addPortal(iscsiPortal toAdd)
+        {
+            string payload = String.Format("{{\"iscsi_target_portal_ips\": \"{0}\" " +
+                                           "}}", toAdd.iscsi_target_portal_ips);
+            return doReqForJSON<iscsiPortal>("http://" + _serverIp + "/api/v1.0/services/iscsi/portal/", "POST", HttpStatusCode.Created, payload);
         }
 
         public override List<user> getUsers()

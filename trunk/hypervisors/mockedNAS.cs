@@ -275,6 +275,21 @@ namespace hypervisors
             }
         }
 
+        public override iscsiPortal addPortal(iscsiPortal toAdd)
+        {
+            lock (events)
+            {
+                events.Add(new mockedCall("addPortal", "toAdd: " + toAdd));
+            }
+
+            lock (portalList)
+            {
+                portalList.Add(toAdd);
+            }
+
+            return toAdd;
+        }
+
         public override volume findVolumeByName(List<volume> volsToSearch, string cloneName)
         {
             lock (events)
