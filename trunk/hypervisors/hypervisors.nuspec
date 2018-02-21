@@ -14,4 +14,7 @@
       <dependency id="VMWare.Vim" version="6.280.0.1"/>
     </dependencies>
   </metadata>
+  <files>
+    <file src="bin\Debug\hypervisors.dll" target="lib\net45"/>
+  </files>
 </package>
