@@ -5,10 +5,11 @@ namespace hypervisors
     [Serializable]
     public class hypSpec_withWindbgKernel
     {
-        public hypSpec_withWindbgKernel(string IPOrHostname, string snapshotName, string newSnapshotFullName, ushort port, string key)
+        public hypSpec_withWindbgKernel(string IPOrHostname, string snapshotName, string newSnapshotFullName, ushort port, string key, string serialPortName = null)
         {
             kernelDebugIPOrHostname = IPOrHostname;
             kernelDebugPort = port;
+            kernelDebugSerialPort = serialPortName;
             kernelDebugKey = key;
             snapshotFriendlyName = snapshotName;
             snapshotFullName = newSnapshotFullName;
@@ -20,9 +21,14 @@ namespace hypervisors
         public string kernelDebugIPOrHostname;
 
         /// <summary>
-        /// The port to use when accepting KD sessions
+        /// The UDP port to use when accepting KD sessions
         /// </summary>
         public ushort kernelDebugPort;
+
+        /// <summary>
+        /// The serial port to connect to, or null
+        /// </summary>
+        public string kernelDebugSerialPort;
 
         /// <summary>
         /// The key to use when accepting KD sessions

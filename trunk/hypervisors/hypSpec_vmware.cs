@@ -17,8 +17,8 @@ namespace hypervisors
             string kernelVmServer, string kernelVmServerUsername, string kernelVmServerPassword,
             string kernelVmUsername, string kernelVmPassword,
             string snapshotFriendlyName, string snapshotNASPath,
-            ushort kernelDebugPort, string kernelVMKey, string vmIPIOrHostname)
-            : base(vmIPIOrHostname, snapshotFriendlyName, snapshotNASPath, kernelDebugPort, kernelVMKey)
+            ushort kernelDebugPort, string kernelVMKey, string vmIPIOrHostname, string kernelVmDebugSerialPort = null)
+            : base(vmIPIOrHostname, snapshotFriendlyName, snapshotNASPath, kernelDebugPort, kernelVMKey, kernelVmDebugSerialPort)
         {
             kernelVMName = kernelVmName;
             kernelVMServer = kernelVmServer;

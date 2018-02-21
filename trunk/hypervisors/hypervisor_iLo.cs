@@ -241,7 +241,7 @@ namespace hypervisors
 
         public override string ToString()
         {
-            return string.Format("{0}:{1}", _spec.kernelDebugIPOrHostname, _spec.kernelDebugPort);
+            return string.Format("{0}:{1}", _spec.kernelDebugIPOrHostname, _spec.kernelDebugSerialPort ?? _spec.kernelDebugPort.ToString());
         }
 
         protected override void Dispose(bool disposing)
