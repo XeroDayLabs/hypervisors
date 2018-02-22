@@ -17,8 +17,10 @@ namespace hypervisors
             string kernelVmServer, string kernelVmServerUsername, string kernelVmServerPassword,
             string kernelVmUsername, string kernelVmPassword,
             string snapshotFriendlyName, string snapshotNASPath,
-            ushort kernelDebugPort, string kernelVMKey, string vmIPIOrHostname, string kernelVmDebugSerialPort = null)
-            : base(vmIPIOrHostname, snapshotFriendlyName, snapshotNASPath, kernelDebugPort, kernelVMKey, kernelVmDebugSerialPort)
+            ushort kernelDebugPort, string kernelVMKey, string vmIPIOrHostname, 
+            string kernelVmDebugSerialPort = null, string newKDProxyIPAddress = null, 
+            kernelConnectionMethod newDebugMethod = kernelConnectionMethod.none)
+            : base(vmIPIOrHostname, snapshotFriendlyName, snapshotNASPath, kernelDebugPort, kernelVMKey, kernelVmDebugSerialPort, newKDProxyIPAddress, newDebugMethod)
         {
             kernelVMName = kernelVmName;
             kernelVMServer = kernelVmServer;

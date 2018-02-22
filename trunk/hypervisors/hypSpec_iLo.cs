@@ -9,8 +9,11 @@ namespace hypervisors
             string hostUsername, string hostPassword,
             string iloHostname, string iLoUsername, string iloPassword,
             string iscsiServerIP, string iscsiServerUsername, string iscsiServerPassword,
-            string snapshotName, string snapshotPath, UInt16 hostKernelDebugPort, string hostKernelDebugKey)
-            : base(hostIP, snapshotName, snapshotPath, hostKernelDebugPort, hostKernelDebugKey)
+            string snapshotName, string snapshotPath, 
+            UInt16 hostKernelDebugPort, string hostKernelDebugKey,
+            string hostKernelDebugSerialPort = null, string KDProxyIPAddress = null,
+            kernelConnectionMethod debugMethod = kernelConnectionMethod.none)
+            : base(hostIP, snapshotName, snapshotPath, hostKernelDebugPort, hostKernelDebugKey, hostKernelDebugSerialPort, KDProxyIPAddress, debugMethod)
         {
             this.hostUsername = hostUsername;
             this.hostPassword = hostPassword;
