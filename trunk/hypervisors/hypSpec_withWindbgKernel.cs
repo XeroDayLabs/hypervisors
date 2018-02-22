@@ -2,15 +2,29 @@ using System;
 
 namespace hypervisors
 {
+    public enum kernelConnectionMethod
+    {
+        none,
+        namedPipe,
+        serial,
+        net,
+    }
+
     [Serializable]
     public class hypSpec_withWindbgKernel
     {
-        public hypSpec_withWindbgKernel(string IPOrHostname, string snapshotName, string newSnapshotFullName, ushort port, string key, string serialPortName = null)
+        public hypSpec_withWindbgKernel(
+            string IPOrHostname, string snapshotName, string newSnapshotFullName,
+            ushort debugPort = 0, string debugKey = null,
+            string serialPortName = null, string newKDProxyIPAddress = null, 
+            kernelConnectionMethod newDebugMethod = kernelConnectionMethod.none)
         {
             kernelDebugIPOrHostname = IPOrHostname;
-            kernelDebugPort = port;
+            kernelDebugPort = debugPort;
             kernelDebugSerialPort = serialPortName;
-            kernelDebugKey = key;
+            kernelDebugKey = debugKey;
+            KDProxyIPAddress = newKDProxyIPAddress;
+            debugMethod = newDebugMethod;
             snapshotFriendlyName = snapshotName;
             snapshotFullName = newSnapshotFullName;
         }
@@ -31,9 +45,19 @@ namespace hypervisors
         public string kernelDebugSerialPort;
 
         /// <summary>
-        /// The key to use when accepting KD sessions
+        /// The key to use when accepting KD sessions, or null
         /// </summary>
         public string kernelDebugKey;
+
+        /// <summary>
+        /// The IP address of the machine to use as a KDProxy, or null if none is in use
+        /// </summary>
+        public string KDProxyIPAddress;
+
+        /// <summary>
+        /// How we should conenct to KD, if at all
+        /// </summary>
+        public kernelConnectionMethod debugMethod;
 
         /// <summary>
         /// The friendly name for the snapshot, eg, 'clean'
