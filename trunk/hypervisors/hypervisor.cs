@@ -40,12 +40,12 @@ namespace hypervisors
 
         public void powerOn()
         {
-            powerOn(new cancellableDateTime());
+            powerOn(new cancellableDateTime(TimeSpan.FromMinutes(10)));
         }
 
         public void powerOff()
         {
-            powerOff(new cancellableDateTime());
+            powerOff(new cancellableDateTime(TimeSpan.FromMinutes(10)));
         }
 
         public void copyDirToGuest(string src, string dest)
