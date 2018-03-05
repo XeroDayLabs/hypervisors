@@ -171,12 +171,12 @@ namespace hypervisors
                     "/f /create /s {0} /tr \"'{1}'\" /it /sc onstart /tn {4} /u {2} /p {3} ",
                     _guestIP, fileSet.launcherPath, _username, _password, scheduledTaskName));
                 if (taskCreation.resultCode != 0)
-                    throw new Exception("Couldn't create scheduled task, stdout " + taskCreation.stdout + " / stderr " + taskCreation.stderr);
+                    throw new hypervisorExecutionException("Couldn't create scheduled task, stdout " + taskCreation.stdout + " / stderr " + taskCreation.stderr);
                 executionResult taskStart = local.startExecutable("schtasks.exe", string.Format(
                     "/run /s {0} /tn {3} /u {1} /p {2}",
                     _guestIP, _username, _password, scheduledTaskName));
                 if (taskStart.resultCode != 0)
-                    throw new Exception("Couldn't start scheduled task, stdout " + taskStart.stdout + " / stderr " + taskStart.stderr);
+                    throw new hypervisorExecutionException("Couldn't start scheduled task, stdout " + taskStart.stdout + " / stderr " + taskStart.stderr);
             }
             return new asyncExecutionResultViaFile(this, fileSet);
         }
