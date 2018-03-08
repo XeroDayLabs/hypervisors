@@ -158,7 +158,7 @@ namespace tests
         }
 
         [TestMethod]
-        public void canAddDiskBasedExtent()
+        public void canExportADisk()
         {
             clearAll();   
             FreeNASWithCaching foo = new FreeNASWithCaching(nashostname, nasusername, naspassword);
