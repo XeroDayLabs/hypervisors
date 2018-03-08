@@ -97,7 +97,7 @@ namespace tests
         }
 
         [TestMethod]
-        public void canAddExtentsQuickly()
+        public void canAddExtentsAndTargetsQuickly()
         {
             Stopwatch timer = new Stopwatch();
             timer.Start();
@@ -129,10 +129,16 @@ namespace tests
                     iscsi_target_extent_type = "File",
                     iscsi_target_extent_path = nastempspace + "/testfile_" + i
                 });
+                iscsiTarget newTarget = foo.addISCSITarget(new iscsiTarget()
+                {
+                    targetName = testPrefix + "_" + i
+                });
+                foo.addISCSITargetToExtent(newTarget.id, extentsAdded[i]);
+                foo.createTargetGroup(foo.getPortals()[0], newTarget);
             }
             timer.Stop();
             int flushesAfter = foo.flushCount;
-            Debug.WriteLine("Adding " + extentcount + " extents took " + timer.ElapsedMilliseconds + " ms and required " +
+            Debug.WriteLine("Adding " + extentcount + " extents/targets/TTE took " + timer.ElapsedMilliseconds + " ms and required " +
                             (flushesAfter - flushesBefore) + " flushes");
             Assert.IsTrue(timer.Elapsed < TimeSpan.FromSeconds(10));
 
@@ -165,73 +171,21 @@ namespace tests
                 exec.startExecutable("zfs", "create -V 10MB test/" + testPrefix);
             }
 
-            // Add some extents and watch the time taken
-            foo.addISCSIExtent(new iscsiExtent()
+            // Add an extent and watch the time taken
+            var newExtent = foo.addISCSIExtent(new iscsiExtent()
             {
                 iscsi_target_extent_name = testPrefix,
                 iscsi_target_extent_type = "Disk",
                 iscsi_target_extent_path = "/dev/zvol/test/" + testPrefix
             });
+            iscsiTarget newTarget = foo.addISCSITarget(new iscsiTarget()
+            {
+                targetName = testPrefix
+            });
+            foo.addISCSITargetToExtent(newTarget.id, newExtent);
+            foo.createTargetGroup(foo.getPortals()[0], newTarget);
 
             foo.waitUntilISCSIConfigFlushed();
-        }
-
-        [TestMethod]
-        public void canAddTargetsQuickly()
-        {
-            Stopwatch timer = new Stopwatch();
-            timer.Start();
-            FreeNASWithCaching foo = new FreeNASWithCaching(nashostname, nasusername, naspassword);
-            timer.Stop();
-            Debug.WriteLine("Instantiation took " + timer.ElapsedMilliseconds + " ms");
-
-            string testPrefix = Guid.NewGuid().ToString();
-
-            int targetCount = 50;
-
-            // Add some targets and watch the time taken
-            timer.Restart();
-            int flushesBefore = foo.flushCount;
-            iscsiTarget[] targetsAdded = new iscsiTarget[targetCount];
-            for (int i = 0; i < targetCount; i++)
-            {
-                targetsAdded[i] = foo.addISCSITarget(new iscsiTarget()
-                {
-                    targetName = testPrefix + "-" + i
-                });
-            }
-            timer.Stop();
-            int flushesAfter = foo.flushCount;
-            Debug.WriteLine("Adding " + targetCount + " targets took " + timer.ElapsedMilliseconds + " ms and required " +
-                            (flushesAfter - flushesBefore) + " flushes");
-            Assert.IsTrue(timer.Elapsed < TimeSpan.FromSeconds(7));
-
-            // Each should be unique by these properties
-            try
-            {
-                foreach (iscsiTarget tgt in targetsAdded)
-                {
-                    Assert.AreEqual(1, targetsAdded.Count(x => x.id == tgt.id));
-                    Assert.AreEqual(1, targetsAdded.Count(x => x.targetName == tgt.targetName));
-                }
-            }
-            catch (AssertFailedException)
-            {
-                foreach (var tgt in targetsAdded)
-                {
-                    Debug.WriteLine("Target:");
-                    Debug.WriteLine(" id = " + tgt.id);
-                    Debug.WriteLine(" targetName = " + tgt.targetName);
-                    Debug.WriteLine(" targetAlias = " + tgt.targetAlias);
-                }
-                throw;
-            }
-
-            timer.Restart();
-            foo.waitUntilISCSIConfigFlushed();
-            timer.Stop();
-            Debug.WriteLine("Reloading config took " + timer.ElapsedMilliseconds + " ms");
-            Assert.IsTrue(timer.Elapsed < TimeSpan.FromSeconds(7));
         }
 
         [TestMethod]
@@ -399,7 +353,7 @@ namespace tests
         }
 
         [TestMethod]
-        public void canCloningSnapshots()
+        public void canCloneSnapshots()
         {
             string testPrefix = Guid.NewGuid().ToString();
 
