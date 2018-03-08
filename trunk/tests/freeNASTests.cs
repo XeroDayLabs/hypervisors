@@ -131,7 +131,7 @@ namespace tests
                 });
                 iscsiTarget newTarget = foo.addISCSITarget(new iscsiTarget()
                 {
-                    targetName = testPrefix + "_" + i
+                    targetName = testPrefix + "-" + i
                 });
                 foo.addISCSITargetToExtent(newTarget.id, extentsAdded[i]);
                 foo.createTargetGroup(foo.getPortals()[0], newTarget);
