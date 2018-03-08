@@ -164,7 +164,7 @@ namespace hypervisors
             }
         }
 
-        public override void waitUntilISCSIConfigFlushed(bool force)
+        public override void waitUntilISCSIConfigFlushed(bool force = false, TimeSpan timeout = new TimeSpan())
         {
             lock (events)
             {

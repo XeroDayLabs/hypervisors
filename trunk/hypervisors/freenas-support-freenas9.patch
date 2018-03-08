@@ -1,12 +1,57 @@
 diff -r -U 5 freenasUI-old/api/resources.py freenasUI/api/resources.py
+--- freenasUI-old/middleware/notifier.py 2017-12-05 10:49:07.640246773 +0800
++++ freenasUI/middleware/notifier.py     2018-03-08 18:38:24.794835363 +0800
+@@ -374,13 +374,8 @@
+     def reload(self, what):
+         """ Reload the service specified by "what".
+
+-        The helper will use method self._reload_[what]() to reload the service.
+-        If the method does not exist, the helper will try self.restart of the
+-        service instead."""
+-        try:
+-            self._simplecmd("reload", what)
+-        except:
+-            self.restart(what)
++        The helper will use method self._reload_[what]() to reload the service."""
++        self._simplecmd("reload", what)
+         return self.started(what)
+
+     def change(self, what):
+@@ -446,6 +441,27 @@
+     def _reload_iscsitarget(self):
+         self._system("/usr/sbin/service ix-ctld quietstart")
+         self._system("/usr/sbin/service ctld reload")
++        reloadsWithNoIncrease = 0
++        lastProgress = -1
++        while True:
++               p1 = self._pipeopen('grep ^lun /etc/ctl.conf | wc -l')
++               stdout1, stderr1 = p1.communicate()
++               p2 = self._pipeopen('ctladm portlist -f iscsi | wc -l')
++               stdout2, stderr2 = p2.communicate()
++               expected=int(stdout1)
++               actual=int(stdout2) - 1 # Subtract one for the header row
++               if actual == expected:
++                      return
++               if lastProgress == actual:
++                      reloadsWithNoIncrease=reloadsWithNoIncrease+1
++               else:
++                      reloadsWithNoIncrease=0
++               if reloadsWithNoIncrease > 60:
++                      # eek, timeout
++                      log.error("Ctld timeout")
++                      raise IOError("timeout")
++               lastProgress = actual
++               self._system("sleep 1")
+
+     def _start_collectd(self):
+         self._system("/usr/sbin/service ix-collectd quietstart")
+
 --- freenasUI-old/api/resources.py	2017-12-02 01:16:48.000000000 -0800
 +++ freenasUI/api/resources.py	2017-12-03 22:11:21.170378190 -0800
-@@ -2537,10 +2537,22 @@
-     def obj_get(self, bundle, **kwargs):
-         if 'pk' in kwargs and not kwargs['pk'].isdigit():
+@@ -2539,6 +2539,18 @@
              kwargs['srv_service'] = kwargs.pop('pk')
          return super(ServicesResourceMixin, self).obj_get(bundle, **kwargs)
- 
+
 +class AlizTestResource(DojoResource):
 +
 +    class Meta:
@@ -14,18 +59,14 @@ diff -r -U 5 freenasUI-old/api/resources.py freenasUI/api/resources.py
 +        resource_name = 'system/aliztest'
 +
 +    def get_list(self, request, **kwargs):
-+        started = notifier().reload("iscsitarget")
-+        data = {
-+            'reloaded': started,
-+        }
-+        return self.create_response(request, data)
- 
++        try:
++            started = notifier().reload("iscsitarget")
++        except IOError:
++                return HttpResponse('ctld reload timed out', status=510)
++        return HttpResponse('OK', status=200)
+
  class RebootResource(DojoResource):
- 
-     class Meta:
-         allowed_methods = ['post']
-Only in freenasUI/api: resources.py.orig
-Only in freenasUI: local_settings.py
+
 diff -r -U 5 freenasUI-old/services/forms.py freenasUI/services/forms.py
 --- freenasUI-old/services/forms.py	2017-12-02 01:16:49.000000000 -0800
 +++ freenasUI/services/forms.py	2017-12-03 22:11:21.173146279 -0800
@@ -88,45 +129,7 @@ diff -r -U 5 freenasUI-old/services/forms.py freenasUI/services/forms.py
  
  class iSCSITargetExtentForm(ModelForm):
  
-@@ -1313,12 +1313,12 @@
-             ('Disk', _('Device')),
-             ('File', _('File')),
-         ),
-         label=_("Extent Type"),
-     )
--    iscsi_target_extent_disk = forms.ChoiceField(
--        choices=(),
-+    iscsi_target_extent_disk = forms.CharField(
-+#        choices=(),
-         widget=forms.Select(attrs={'maxHeight': 200}),
-         label=_('Device'),
-         required=False,
-     )
- 
-@@ -1342,19 +1342,19 @@
- 
-             if self.instance.iscsi_target_extent_type == 'File':
-                 self.fields['iscsi_target_extent_type'].initial = 'File'
-             else:
-                 self.fields['iscsi_target_extent_type'].initial = 'Disk'
--            self.fields['iscsi_target_extent_disk'].choices = self._populate_disk_choices(exclude=self.instance)
-+#            self.fields['iscsi_target_extent_disk'].choices = self._populate_disk_choices(exclude=self.instance)
-             if self.instance.iscsi_target_extent_type in ('ZVOL', 'HAST'):
-                 self.fields['iscsi_target_extent_disk'].initial = self.instance.iscsi_target_extent_path
-             else:
-                 self.fields['iscsi_target_extent_disk'].initial = self.instance.get_device()[5:]
-             self._path = self.instance.iscsi_target_extent_path
-             self._name = self.instance.iscsi_target_extent_name
--        else:
--            self.fields['iscsi_target_extent_disk'].choices = self._populate_disk_choices()
-+#        else:
-+#            self.fields['iscsi_target_extent_disk'].choices = self._populate_disk_choices()
-         self.fields['iscsi_target_extent_type'].widget.attrs['onChange'] = "iscsiExtentToggle();extentZvolToggle();"
-         self.fields['iscsi_target_extent_path'].required = False
- 
-         self.fields['iscsi_target_extent_disk'].widget.attrs['onChange'] = (
-             'extentZvolToggle();'
-@@ -1587,13 +1587,13 @@
+@@ -1639,13 +1639,13 @@
                  size = self.cleaned_data["iscsi_target_extent_filesize"]
                  if size.lower().endswith("b"):
                      size = size[:-1]
@@ -139,10 +142,10 @@ diff -r -U 5 freenasUI-old/services/forms.py freenasUI/services/forms.py
 +#        if started is False and models.services.objects.get(srv_service='iscsitarget').srv_enable:
 +#            raise ServiceFailed("iscsitarget", _("The iSCSI service failed to reload."))
          return oExtent
- iSCSITargetExtentForm.base_fields.keyOrder.remove('iscsi_target_extent_disk')
- iSCSITargetExtentForm.base_fields.keyOrder.insert(2, 'iscsi_target_extent_disk')
  
  
+ class iSCSITargetPortalForm(ModelForm):
+          iscsi_target_portal_discoveryauthgroup = forms.ChoiceField(
 @@ -1636,13 +1636,13 @@
          return tag
  
@@ -302,7 +305,6 @@ diff -r -U 5 freenasUI-old/services/views.py freenasUI/services/views.py
          role = sysctl.filter('dev.isp.%s.role' % mibname)
          if role:
              role = role[0]
-Only in freenasUI/services: views.py.orig
 diff -r -U 5 freenasUI-old/storage/views.py freenasUI/storage/views.py
 --- freenasUI-old/storage/views.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/storage/views.py	2017-12-03 22:11:21.175211136 -0800
@@ -321,7 +323,6 @@ diff -r -U 5 freenasUI-old/storage/views.py freenasUI/storage/views.py
                      message=_("Zvol successfully edited."))
              else:
                  for field, err in errors.items():
-Only in freenasUI/storage: views.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/activedirectory.py freenasUI/system/alertmods/activedirectory.py
 --- freenasUI-old/system/alertmods/activedirectory.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/activedirectory.py	2017-12-03 22:11:21.175795499 -0800
@@ -333,7 +334,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/activedirectory.py freenasUI/system/
  
 -alertPlugins.register(ADAlert)
 +###alertPlugins.register(ADAlert)
-Only in freenasUI/system/alertmods: activedirectory.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/boot_volume_status.py freenasUI/system/alertmods/boot_volume_status.py
 --- freenasUI-old/system/alertmods/boot_volume_status.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/boot_volume_status.py	2017-12-03 22:11:21.176368756 -0800
@@ -345,7 +345,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/boot_volume_status.py freenasUI/syst
  
 -alertPlugins.register(BootVolumeStatusAlert)
 +###alertPlugins.register(BootVolumeStatusAlert)
-Only in freenasUI/system/alertmods: boot_volume_status.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/collectd.py freenasUI/system/alertmods/collectd.py
 --- freenasUI-old/system/alertmods/collectd.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/collectd.py	2017-12-03 22:11:21.176956051 -0800
@@ -357,7 +356,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/collectd.py freenasUI/system/alertmo
  
 -alertPlugins.register(CollectdAlert)
 +###alertPlugins.register(CollectdAlert)
-Only in freenasUI/system/alertmods: collectd.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/http_ssl.py freenasUI/system/alertmods/http_ssl.py
 --- freenasUI-old/system/alertmods/http_ssl.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/http_ssl.py	2017-12-03 22:11:21.177585391 -0800
@@ -369,7 +367,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/http_ssl.py freenasUI/system/alertmo
  
 -alertPlugins.register(SSLAlert)
 +###alertPlugins.register(SSLAlert)
-Only in freenasUI/system/alertmods: http_ssl.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/httpd_bindaddr.py freenasUI/system/alertmods/httpd_bindaddr.py
 --- freenasUI-old/system/alertmods/httpd_bindaddr.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/httpd_bindaddr.py	2017-12-03 22:11:21.178168705 -0800
@@ -381,7 +378,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/httpd_bindaddr.py freenasUI/system/a
  
 -alertPlugins.register(HTTPDBindAlert)
 +###alertPlugins.register(HTTPDBindAlert)
-Only in freenasUI/system/alertmods: httpd_bindaddr.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/iscsi_portal_ips.py freenasUI/system/alertmods/iscsi_portal_ips.py
 --- freenasUI-old/system/alertmods/iscsi_portal_ips.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/iscsi_portal_ips.py	2017-12-03 22:11:21.178759353 -0800
@@ -393,7 +389,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/iscsi_portal_ips.py freenasUI/system
  
 -alertPlugins.register(PortalIPAlert)
 +###alertPlugins.register(PortalIPAlert)
-Only in freenasUI/system/alertmods: iscsi_portal_ips.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/mpr_firmware.py freenasUI/system/alertmods/mpr_firmware.py
 --- freenasUI-old/system/alertmods/mpr_firmware.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/mpr_firmware.py	2017-12-03 22:11:21.179329607 -0800
@@ -405,7 +400,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/mpr_firmware.py freenasUI/system/ale
  
 -alertPlugins.register(MPRFirmwareAlert)
 +###alertPlugins.register(MPRFirmwareAlert)
-Only in freenasUI/system/alertmods: mpr_firmware.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/mps_firmware.py freenasUI/system/alertmods/mps_firmware.py
 --- freenasUI-old/system/alertmods/mps_firmware.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/mps_firmware.py	2017-12-03 22:11:21.179857258 -0800
@@ -417,7 +411,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/mps_firmware.py freenasUI/system/ale
  
 -alertPlugins.register(MPSFirmwareAlert)
 +###alertPlugins.register(MPSFirmwareAlert)
-Only in freenasUI/system/alertmods: mps_firmware.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/multipaths_status.py freenasUI/system/alertmods/multipaths_status.py
 --- freenasUI-old/system/alertmods/multipaths_status.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/multipaths_status.py	2017-12-03 22:11:21.180408026 -0800
@@ -429,7 +422,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/multipaths_status.py freenasUI/syste
  
 -alertPlugins.register(MultipathAlert)
 +###alertPlugins.register(MultipathAlert)
-Only in freenasUI/system/alertmods: multipaths_status.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/nfs_bindaddr.py freenasUI/system/alertmods/nfs_bindaddr.py
 --- freenasUI-old/system/alertmods/nfs_bindaddr.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/nfs_bindaddr.py	2017-12-03 22:11:21.180937493 -0800
@@ -441,7 +433,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/nfs_bindaddr.py freenasUI/system/ale
  
 -alertPlugins.register(NFSBindAlert)
 +###alertPlugins.register(NFSBindAlert)
-Only in freenasUI/system/alertmods: nfs_bindaddr.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/replication_status.py freenasUI/system/alertmods/replication_status.py
 --- freenasUI-old/system/alertmods/replication_status.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/replication_status.py	2017-12-03 22:11:21.181611321 -0800
@@ -453,7 +444,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/replication_status.py freenasUI/syst
  
 -alertPlugins.register(ReplicationStatusAlert)
 +###alertPlugins.register(ReplicationStatusAlert)
-Only in freenasUI/system/alertmods: replication_status.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/samba4.py freenasUI/system/alertmods/samba4.py
 --- freenasUI-old/system/alertmods/samba4.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/samba4.py	2017-12-03 22:11:21.182235004 -0800
@@ -465,7 +455,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/samba4.py freenasUI/system/alertmods
  
 -alertPlugins.register(Samba4Alert)
 +###alertPlugins.register(Samba4Alert)
-Only in freenasUI/system/alertmods: samba4.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/selftest.py freenasUI/system/alertmods/selftest.py
 --- freenasUI-old/system/alertmods/selftest.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/selftest.py	2017-12-03 22:11:21.182885645 -0800
@@ -477,7 +466,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/selftest.py freenasUI/system/alertmo
  
 -alertPlugins.register(ixSelfTestAlert)
 +###alertPlugins.register(ixSelfTestAlert)
-Only in freenasUI/system/alertmods: selftest.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/smart.py freenasUI/system/alertmods/smart.py
 --- freenasUI-old/system/alertmods/smart.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/smart.py	2017-12-03 22:11:21.183486490 -0800
@@ -489,7 +477,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/smart.py freenasUI/system/alertmods/
  
 -alertPlugins.register(SMARTAlert)
 +###alertPlugins.register(SMARTAlert)
-Only in freenasUI/system/alertmods: smart.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/smartdstatus.py freenasUI/system/alertmods/smartdstatus.py
 --- freenasUI-old/system/alertmods/smartdstatus.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/smartdstatus.py	2017-12-03 22:11:21.184127843 -0800
@@ -501,7 +488,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/smartdstatus.py freenasUI/system/ale
  
 -alertPlugins.register(SMARTDAlert)
 +###alertPlugins.register(SMARTDAlert)
-Only in freenasUI/system/alertmods: smartdstatus.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/update_check.py freenasUI/system/alertmods/update_check.py
 --- freenasUI-old/system/alertmods/update_check.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/update_check.py	2017-12-03 22:11:21.184762839 -0800
@@ -515,7 +501,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/update_check.py freenasUI/system/ale
 -alertPlugins.register(UpdateAppliedAlert)
 +###alertPlugins.register(UpdateCheckAlert)
 +###alertPlugins.register(UpdateAppliedAlert)
-Only in freenasUI/system/alertmods: update_check.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/upgrade_failed.py freenasUI/system/alertmods/upgrade_failed.py
 --- freenasUI-old/system/alertmods/upgrade_failed.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/upgrade_failed.py	2017-12-03 22:11:21.185394833 -0800
@@ -527,7 +512,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/upgrade_failed.py freenasUI/system/a
  
 -alertPlugins.register(UpdateFailedAlert)
 +###alertPlugins.register(UpdateFailedAlert)
-Only in freenasUI/system/alertmods: upgrade_failed.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/vmwaresnap_fails.py freenasUI/system/alertmods/vmwaresnap_fails.py
 --- freenasUI-old/system/alertmods/vmwaresnap_fails.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/vmwaresnap_fails.py	2017-12-03 22:11:21.186058954 -0800
@@ -539,7 +523,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/vmwaresnap_fails.py freenasUI/system
  
 -alertPlugins.register(VMWareSnapFailAlert)
 +###alertPlugins.register(VMWareSnapFailAlert)
-Only in freenasUI/system/alertmods: vmwaresnap_fails.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/vmwaresnapdelete_fails.py freenasUI/system/alertmods/vmwaresnapdelete_fails.py
 --- freenasUI-old/system/alertmods/vmwaresnapdelete_fails.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/vmwaresnapdelete_fails.py	2017-12-03 22:11:21.186702402 -0800
@@ -551,7 +534,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/vmwaresnapdelete_fails.py freenasUI/
  
 -alertPlugins.register(VMWareSnapDeleteFailAlert)
 +###alertPlugins.register(VMWareSnapDeleteFailAlert)
-Only in freenasUI/system/alertmods: vmwaresnapdelete_fails.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/volume_rekey.py freenasUI/system/alertmods/volume_rekey.py
 --- freenasUI-old/system/alertmods/volume_rekey.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/volume_rekey.py	2017-12-03 22:11:21.187365056 -0800
@@ -563,7 +545,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/volume_rekey.py freenasUI/system/ale
  
 -alertPlugins.register(VolRekeyAlert)
 +###alertPlugins.register(VolRekeyAlert)
-Only in freenasUI/system/alertmods: volume_rekey.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/volume_status.py freenasUI/system/alertmods/volume_status.py
 --- freenasUI-old/system/alertmods/volume_status.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/volume_status.py	2017-12-03 22:11:21.188002776 -0800
@@ -575,7 +556,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/volume_status.py freenasUI/system/al
  
 -alertPlugins.register(VolumeStatusAlert)
 +###alertPlugins.register(VolumeStatusAlert)
-Only in freenasUI/system/alertmods: volume_status.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/volume_version.py freenasUI/system/alertmods/volume_version.py
 --- freenasUI-old/system/alertmods/volume_version.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/volume_version.py	2017-12-03 22:11:21.188646015 -0800
@@ -587,7 +567,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/volume_version.py freenasUI/system/a
  
 -alertPlugins.register(VolumeVersionAlert)
 +###alertPlugins.register(VolumeVersionAlert)
-Only in freenasUI/system/alertmods: volume_version.py.orig
 diff -r -U 5 freenasUI-old/system/alertmods/zpool_capacity.py freenasUI/system/alertmods/zpool_capacity.py
 --- freenasUI-old/system/alertmods/zpool_capacity.py	2017-12-02 01:16:52.000000000 -0800
 +++ freenasUI/system/alertmods/zpool_capacity.py	2017-12-03 22:11:21.189269208 -0800
@@ -599,7 +578,6 @@ diff -r -U 5 freenasUI-old/system/alertmods/zpool_capacity.py freenasUI/system/a
  
 -alertPlugins.register(ZpoolCapAlert)
 +###alertPlugins.register(ZpoolCapAlert)
-Only in freenasUI/system/alertmods: zpool_capacity.py.orig
 diff -r -U 5 freenasUI-old/urls.py freenasUI/urls.py
 --- freenasUI-old/urls.py	2017-12-02 01:16:53.000000000 -0800
 +++ freenasUI/urls.py	2017-12-03 22:11:21.189900992 -0800
@@ -627,4 +605,3 @@ diff -r -U 5 freenasUI-old/urls.py freenasUI/urls.py
  v1_api.register(SnapshotResource())
  v1_api.register(VersionResource())
  v1_api.register(VolumeImportResource())
-Only in freenasUI: urls.py.orig

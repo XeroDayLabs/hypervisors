@@ -70,14 +70,14 @@ namespace hypervisors
             }
         }
 
-        private resp doReq(string url, string method, HttpStatusCode expectedCode, string payload = null, cancellableDateTime deadline = null)
+        private resp doReq(string url, string method, HttpStatusCode expectedCode, string payload = null, cancellableDateTime deadline = null, TimeSpan timeout = default(TimeSpan))
         {
             if (deadline == null)
                 deadline = new cancellableDateTime(TimeSpan.FromMinutes(4));
 
             while (true)
             {
-                resp toRet = _doReq(url, method, expectedCode, payload);
+                resp toRet = _doReq(url, method, expectedCode, payload, timeout);
                 if (toRet != null)
                     return toRet;
 
@@ -88,11 +88,14 @@ namespace hypervisors
             }
         }
 
-        private resp _doReq(string url, string method, HttpStatusCode expectedCode, string payload = null)
+        private resp _doReq(string url, string method, HttpStatusCode expectedCode, string payload = null, TimeSpan timeout = default(TimeSpan))
         {
+            if (timeout == default(TimeSpan))
+                timeout = TimeSpan.FromMinutes(5);
             lock (ReqLock)
             {
                 HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
+                req.Timeout = (int) timeout.TotalMilliseconds;
                 req.Method = method;
                 CredentialCache cred = new CredentialCache();
                 cred.Add(new Uri(url), "Basic", new NetworkCredential(_username, _password));
@@ -135,6 +138,12 @@ namespace hypervisors
                     if (resp == null)
                         throw new nasAccessException(e.Message);
 
+                    if (resp.StatusCode == (HttpStatusCode)510)
+                    {
+                        // Oh no! ctld has run out of ports! Time to recompile the kernel!
+                        throw new nasServerFullException("ctld is full! Delete some iscsi exports or rebuild the kernel with increased limits.");
+                    }
+
                     using (Stream respStream = resp.GetResponseStream())
                     {
                         if (respStream == null)
@@ -166,10 +175,10 @@ namespace hypervisors
             doReq(url, "DELETE", HttpStatusCode.NoContent);
         }
 
-        public override void waitUntilISCSIConfigFlushed(bool force = false)
+        public override void waitUntilISCSIConfigFlushed(bool force = false, TimeSpan timeout = default(TimeSpan))
         {
             string url = String.Format("http://{0}/api/v1.0/system/aliztest/", _serverIp);
-            doReq(url, "GET", HttpStatusCode.OK);
+            doReq(url, "GET", HttpStatusCode.OK, timeout: timeout);
         }
 
         public override void invalidateTargets()
@@ -511,6 +520,13 @@ namespace hypervisors
                                            "}}", associatedPortal.id, tgt.id);
 
             return doReqForJSON<targetGroup>("http://" + _serverIp + "/api/v1.0/services/iscsi/targetgroup/", "post", HttpStatusCode.Created, payload);
+        }
+    }
+
+    public class nasServerFullException : Exception
+    {
+        public nasServerFullException(string msg) : base(msg)
+        {
         }
     }
 }

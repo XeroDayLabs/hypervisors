@@ -154,6 +154,7 @@ namespace tests
         [TestMethod]
         public void canAddDiskBasedExtent()
         {
+            clearAll();   
             FreeNASWithCaching foo = new FreeNASWithCaching(nashostname, nasusername, naspassword);
 
             string testPrefix = Guid.NewGuid().ToString();
@@ -418,6 +419,7 @@ namespace tests
         [TestMethod]
         public void willAllowManyExportsAtOnce()
         {
+            clearAll();
             FreeNASWithCaching foo = new FreeNASWithCaching(nashostname, nasusername, naspassword);
 
             //
@@ -441,7 +443,7 @@ namespace tests
                 // a large amount of space encourages issues like this one to go unnoticed until they subtly degrade
                 // performance later - and wear out the media, if root is on sdcard, which it is on store.xd.lan),
                 // you may run out of space if collectd is not stopped. You can confirm this by observing that
-                // collectd's dir in /var/db/colelctd/rrd is huge.
+                // collectd's dir in /var/db/collectd/rrd is huge.
 
                 int preExisting = foo.getTargetToExtents().Count;
                 for (int i = preExisting; i < maxfiles; i++)
@@ -456,18 +458,29 @@ namespace tests
                     });
 
                     foo.addISCSITargetToExtent(tgt.id, ext);
-                    // To speed this up, we make the first 200 exports without checking.
-                    if (i < 200)
-                        continue;
 
                     uncheckedExports.Add(tgt.targetName);
 
-                    if (i % 10 == 0)
+                    if (i % 100 == 0)
                     {
-                        // Every ten, we reload and see if each has been exported correctly.
-                        foo.waitUntilISCSIConfigFlushed();
+                        // Every hundred, we reload and see if each has been exported correctly.
+                        Stopwatch watch = new Stopwatch();
+                        watch.Start();
+                        bool limitReached = false;
+                        try
+                        {
+                            foo.waitUntilISCSIConfigFlushed();
+                        }
+                        catch (nasServerFullException)
+                        {
+                            // ok cool, we've reached our limit.
+                            limitReached = true;
+                        }
+                        //Thread.Sleep(1000 + (i * 10));
+                        watch.Stop();
+                        Debug.WriteLine("Flush after adding " + i + " exports: took " + watch.ElapsedMilliseconds + " ms");
 
-                        executionResult res = exec.startExecutable("ctladm", "portlist");
+                        executionResult res = exec.startExecutable("ctladm", "portlist -f iscsi");
                         Assert.AreEqual(0, res.resultCode);
 
                         // Each of our unchecked testfiles should appear exactly once in this list.
@@ -479,20 +492,24 @@ namespace tests
 
                             if (lines.Count(x => x.Contains(exportToCheck + ",")) != 1)
                             {
+                                // Oh, we've failed to export something!
                                 maxFilesPossible = i - uncheckedIndex;
-                                maxFilesPossible -= 2;
+                                maxFilesPossible -= 2; 
                                 i = maxfiles;
                                 break;
                             }
+                        }
+                        if (limitReached)
+                        {
+                            maxFilesPossible = i;
+                            break;
                         }
                         uncheckedExports.Clear();
                     }
                 }
             }
-            // This will only be accurate to the nearest-highest 10, since we only reload and check every ten. Thus, the default
-            // of 256 results in 260.
             // Our XDL build has CTL_MAX_PORTS set to 2048, so this should be very high.
-            Assert.AreEqual(256, maxFilesPossible);
+            Assert.IsTrue(maxFilesPossible >= 2048, "maxFilesPossible is " + maxFilesPossible + " which is less than 2048");
         }
 
         [TestMethod]

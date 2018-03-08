@@ -410,7 +410,8 @@ namespace hypervisors
                 if (tree.Name == snapshotNameOrID || tree.Id.ToString() == snapshotNameOrID)
                     return tree;
 
-                return findRecusively(tree.ChildSnapshotList, snapshotNameOrID);
+                if (tree.ChildSnapshotList != null)
+                    return findRecusively(tree.ChildSnapshotList, snapshotNameOrID);
             }
             return null;
         }

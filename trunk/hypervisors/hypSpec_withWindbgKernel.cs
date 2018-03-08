@@ -5,7 +5,6 @@ namespace hypervisors
     public enum kernelConnectionMethod
     {
         none,
-        namedPipe,
         serial,
         net,
     }

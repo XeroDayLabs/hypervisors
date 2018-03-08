@@ -34,7 +34,7 @@ namespace hypervisors
 
         public abstract List<iscsiTarget> getISCSITargets();
         public abstract void deleteISCSITarget(iscsiTarget tgt);
-        public abstract void waitUntilISCSIConfigFlushed(bool force = false);
+        public abstract void waitUntilISCSIConfigFlushed(bool force = false, TimeSpan timeout = default(TimeSpan));
         public abstract void invalidateTargets();
 
         public abstract List<snapshot> getSnapshots();

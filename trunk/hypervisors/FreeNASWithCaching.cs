@@ -214,7 +214,7 @@ namespace hypervisors
             invalidate(extentsLock, uncachedNAS.getSnapshots(), snapshots);
         }
 
-        public override void waitUntilISCSIConfigFlushed(bool force = false)
+        public override void waitUntilISCSIConfigFlushed(bool force = false, TimeSpan timeout = default(TimeSpan))
         {
             // Its okay to return before other threads have completely flushed their config - the only one we're really interested
             // in is the config for the calling thread.
@@ -241,7 +241,7 @@ namespace hypervisors
                         {
                             foreach (KeyValuePair<int, threadDirtInfo> kvp in dirtyISCSIThreads)
                                 dirtyThreadsAtStart.TryAdd(kvp.Key, kvp.Value);
-                            uncachedNAS.waitUntilISCSIConfigFlushed(force);
+                            uncachedNAS.waitUntilISCSIConfigFlushed(force, TimeSpan.FromMinutes(5 + (extents.Count * 0.01)));
                             flushCount++;
                             break;
                         }
