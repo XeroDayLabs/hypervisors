@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -17,10 +18,8 @@ namespace hypervisors
     public abstract class hypervisor : IDisposable
     {
         public abstract void restoreSnapshot();
-        public abstract void connect();
         public abstract void powerOn(cancellableDateTime deadline);
         public abstract void powerOff(cancellableDateTime deadline);
-        public abstract void WaitForStatus(bool isPowerOn, cancellableDateTime deadline);
         public abstract void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline = null);
         public abstract string getFileFromGuest(string srcpath, cancellableDateTime deadline = null);
         public abstract executionResult startExecutable(string toExecute, string args, string workingdir = null, cancellableDateTime deadline = null);
@@ -37,6 +36,7 @@ namespace hypervisors
         {
             Dispose(true);
         }
+
 
         public void powerOn()
         {
@@ -280,7 +280,14 @@ namespace hypervisors
         public void throwIfTimedOutOrCancelled(string cancellationMessage = null)
         {
             if (!stillOK)
-                throw new TimeoutException(cancellationMessage + " @ " + Environment.StackTrace);
+            {
+                string stackTrace = Environment.StackTrace;
+                List<string> split = stackTrace.Split(new[] {'\n', '\r'}, StringSplitOptions.RemoveEmptyEntries).ToList();
+                split.Remove("   at System.Environment.GetStackTrace(Exception e, Boolean needFileInfo)");
+                split.Remove("   at System.Environment.get_StackTrace()");
+                string stackTraceTrimmed = string.Join("\r", split);
+                throw new TimeoutException(cancellationMessage + " @ " + stackTraceTrimmed);
+            }
             if (childDeadline != null)
                 childDeadline.throwIfTimedOutOrCancelled(cancellationMessage);
         }
