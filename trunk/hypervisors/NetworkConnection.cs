@@ -58,35 +58,15 @@ namespace hypervisors
             }
         }
 
-        ~NetworkConnection()
-        {
-            try
-            {
-                destroyConnection();
-            }
-            catch (Exception)
-            {
-                // :(
-            }
-        }
-
         public void Dispose()
-        {
-            destroyConnection();
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void destroyConnection()
         {
             if (_networkName != null)
             {
                 WNetCancelConnection2(_networkName, 0, true);
+
                 bool foo;
                 if (!openConnections.TryRemove(_networkName, out foo))
-                {
-                    // Oh no! We can't safely throw from the finalizer thread, how can we notify the user?!
-                    openConnections = null; // >:)
-                }
+                    throw new Exception("Couldn't remove network credential '" + _networkName + "'");
                 _networkName = null;
             }
         }
