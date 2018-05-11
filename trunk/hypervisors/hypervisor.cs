@@ -18,8 +18,10 @@ namespace hypervisors
     public abstract class hypervisor : IDisposable
     {
         public abstract void restoreSnapshot();
+        public abstract void connect(); 
         public abstract void powerOn(cancellableDateTime deadline);
         public abstract void powerOff(cancellableDateTime deadline);
+        public abstract void WaitForStatus(bool isPowerOn, cancellableDateTime deadline);
         public abstract void copyToGuest(string dstpath, string srcpath, cancellableDateTime deadline = null);
         public abstract string getFileFromGuest(string srcpath, cancellableDateTime deadline = null);
         public abstract executionResult startExecutable(string toExecute, string args, string workingdir = null, cancellableDateTime deadline = null);
